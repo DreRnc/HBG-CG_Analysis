@@ -216,9 +216,9 @@ class FullyConnectedLayer(Layer):
         self._biases += biases_update
         self._weights += weights_update
 
+        # Saves values for next step
         self._last_grad_weights = grad_weights
         self._last_grad_biases = grad_biases
-
         self._last_weights_update = weights_update
         self._last_biases_update = biases_update
 

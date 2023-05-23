@@ -62,11 +62,11 @@ class HeavyBallGradient():
 			self.biases_steps = np.where(np.sign(grad_biases) == np.sign(last_grad_biases), np.where(np.abs(self.biases_steps) < self.eta_max, self.biases_steps * self.alpha, self.biases_steps), \
 				np.where(np.abs(self.biases_steps) > self.eta_min, self.biases_steps * self.beta, self.biases_steps))
 			weights_updates, biases_updates = -self.weights_steps * np.sign(grad_weights), -self.biases_steps * np.sign(grad_biases)
-
 		elif self.ada_grad is None:
 			weights_updates, biases_updates = -self.step * grad_weights, -self.step * grad_biases
 		else:
 			weights_updates, biases_updates = self.ada_grad(grad_weights, grad_biases, self.step)
+		
 		return weights_updates + self.momentum * last_weights_update, biases_updates + self.momentum * last_biases_update
 
 class AdaGrad():
