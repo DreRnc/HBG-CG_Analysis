@@ -2,7 +2,7 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection import train_test_split
 from itertools import product
 from src.MLP import MLP
-from src.svr2 import MultiOutputSVR
+#from src.svr2 import MultiOutputSVR
 import random
 import concurrent.futures
 import time
