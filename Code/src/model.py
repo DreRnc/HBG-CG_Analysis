@@ -15,6 +15,7 @@ class MLP():
     self.task (str) : ("classification" or "regression") task the network is performing
     self.hidden_layer_units (list) : list of int indicating number of units for each hidden layer
     self.activation_function (str) : name/alias of activation function for all activation layers
+    
     """
 
     def __init__(self, hidden_layer_units, input_size, output_size, activation_function = 'sigm', task = 'regression', random_seed = 0):
@@ -134,16 +135,16 @@ class MLP():
             layer.set_params(params[i])
 
     def update_params(self, updates):
-            
-            """
-            Updates parameters of the model.
-            
-            Parameters
-            ----------
-            params (list of dict) : list of dictionaries that are parameters of each layer
-            updates (list of dict) : list of dictionaries that are updates for each layer
         
-            """
+        """
+        Updates parameters of the model.
+        
+        Parameters
+        ----------
+        params (list of dict) : list of dictionaries that are parameters of each layer
+        updates (list of dict) : list of dictionaries that are updates for each layer
     
-            for i, layer in enumerate(self.layers):
-                layer.update_params(updates[i])
+        """
+
+        for i, layer in enumerate(self.layers):
+            layer.update_params(updates[i])
