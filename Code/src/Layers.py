@@ -9,14 +9,14 @@ class Layer:
 
     Override Methods
     ----------------
-    forwardprop
+    forward
     backprop
     """
 
     def __init__(self):
         pass
 
-    def forwardprop(self):
+    def forward(self):
         raise NotImplementedError
 
     def backprop(self):
@@ -49,7 +49,7 @@ class FullyConnectedLayer(Layer):
     initialize : initialize properties of the fully connected layer which are specific for each fit
     get_params : gets the parameters from the layer
     set_params : set the parameters of the layer
-    forwardprop : performs linear transformation on input
+    forward : performs linear transformation on input
     backprop : performs backpropagation, updating weights and biases, and passing gradient for previous layer
 
     """
@@ -156,7 +156,24 @@ class FullyConnectedLayer(Layer):
         self._weights = params["weights"]
         self._biases = params["biases"]
 
-    def forwardprop(self, input):
+    def update_params(self, updates):
+
+        """
+        Updates the parameters of the layer.
+        Function used for updating parameters after each optimization step.
+
+        Parameters
+        ----------
+        updates (dict): the values to add to the parameters of the layer.
+            "weights" (np.array) : dimensions (n_inputs_per_unit x n_units)
+            "bias" (np.array) : dimension (1, self.n_units)
+
+        """
+
+        self._weights += updates["weights"]
+        self._biases += updates["biases"]
+
+    def forward(self, input):
         
         """
         Perform linear transformation to input.
@@ -184,45 +201,26 @@ class FullyConnectedLayer(Layer):
     def backprop(self, grad_output):
 
         """
-        Performs backpropagation, updating weights and biases, and passing gradient for next step.
-        Starts by calculating various gradients with respect to input, weights and biases.
-        Then calls optimizer to update weights and biases.
-        Finally, returns gradient with respect to input.
+        Performs backpropagation, calculating gradientd with respect to weights and biases
+        and passing gradient for next step.
 
         Parameters
         ----------
-        grad_output (np.array) : gradient of loss function with respect to output of this layer
+        grad_output (np.array) : gradient of objective function with respect to output of this layer
 
         Returns
         -------
-        grad_input (np.array) : gradient of loss function with respect to input of this layer (i.e. output of previous layer)
+        grad_layer (list of np.array) : gradient of objective function with respect to weights and biases of this layer
+        grad_input (np.array) : gradient of objective function with respect to input of this layer (i.e. output of previous layer)
 
         """
-        
-        weights = self._weights
-        biases = self._biases
-
-        if self.optimizer.Nesterov:
-            weights = weights + self.optimizer.momentum * self._last_weights_update
-            biases = biases + self.optimizer.momentum * self._last_biases_update
-
         grad_input = np.matmul(grad_output, weights.T)
-        grad_weights = np.matmul(self._input.T, grad_output) + self.regularization_function.derivative(weights)
+        grad_weights = np.matmul(self._input.T, grad_output) + self.regularization_function.derivative(self.weights)
         grad_biases = grad_output.sum(axis = 0, keepdims = True)
 
-        weights_update, biases_update = self.optimizer(grad_weights, grad_biases, \
-            self._last_weights_update, self._last_biases_update, self._last_grad_weights, self._last_grad_biases)
+        grad_layer = [grad_weights, grad_biases]
 
-        self._biases += biases_update
-        self._weights += weights_update
-
-        # Saves values for next step
-        self._last_grad_weights = grad_weights
-        self._last_grad_biases = grad_biases
-        self._last_weights_update = weights_update
-        self._last_biases_update = biases_update
-
-        return grad_input
+        return grad_layer, grad_input
 
 
 
@@ -239,7 +237,7 @@ class ActivationLayer(Layer):
     Methods
     -------
     __init__ : initialize activation layer with its activation function
-    forwardprop : performs linear transformation on input
+    forward : performs linear transformation on input
     backprop : performs backpropagation, updating weights and biases, and passing gradient for previous layer
 
     """
@@ -257,7 +255,7 @@ class ActivationLayer(Layer):
 
         self.activation = get_activation_instance(activation)
     
-    def forwardprop(self, input):
+    def forward(self, input):
         
         """
         Applies activation function to input element-wise.
@@ -314,7 +312,7 @@ class Dense(Layer):
     initialize : initialize properties of the fully connected layer which are specific for each fit
     get_params : gets the parameters from the fully connected part of the layer
     set_params : set the parameters of the fully connected part of the layer
-    forwardprop : performs linear transformation and activation on input
+    forward : performs linear transformation and activation on input
     backprop : performs backpropagation, updating weights and biases, and passing gradient to previous layer
     """
 
@@ -380,7 +378,7 @@ class Dense(Layer):
 
         self._fully_connected_layer.set_params(params)
 
-    def forwardprop(self, input):
+    def forward(self, input):
         
         """
         Computes forward propagation, first on FCL, then on AL.
@@ -389,8 +387,8 @@ class Dense(Layer):
 
         """
 
-        output_FCL = self._fully_connected_layer.forwardprop(input)
-        return self._activation_layer.forwardprop(output_FCL)
+        output_FCL = self._fully_connected_layer.forward(input)
+        return self._activation_layer.forward(output_FCL)
 
 
     def backprop (self, grad_output):

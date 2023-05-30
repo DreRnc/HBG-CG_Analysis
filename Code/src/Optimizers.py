@@ -41,6 +41,8 @@ class HeavyBallGradient():
 		self.step = step
 		self.momentum = momentum
 		self.Nesterov = Nesterov
+
+		# For Rprop
 		self.rprop = rprop
 		self.alpha = 1.2
 		self.beta = 0.5
@@ -49,6 +51,7 @@ class HeavyBallGradient():
 		self.weights_steps = 0.01*np.ones((n_inputs, n_units))
 		self.biases_steps = 0.01*np.ones((1, n_units))
 
+		# For AdaGrad
 		if adaptive_grad is True:
 			self.ada_grad = AdaGrad(n_inputs, n_units)
 		else:
@@ -56,7 +59,7 @@ class HeavyBallGradient():
 
 	def __call__(self, grad_weights, grad_biases, last_weights_update, last_biases_update, last_grad_weights, last_grad_biases):
 		if self.rprop:
-			# rprop variant
+			# Rprop variant
 			self.weights_steps = np.where(np.sign(grad_weights) == np.sign(last_grad_weights), np.where(np.abs(self.weights_steps) < self.eta_max, self.weights_steps * self.alpha, self.weights_steps), \
 				np.where(np.abs(self.weights_steps) > self.eta_min, self.weights_steps * self.beta, self.weights_steps))
 			self.biases_steps = np.where(np.sign(grad_biases) == np.sign(last_grad_biases), np.where(np.abs(self.biases_steps) < self.eta_max, self.biases_steps * self.alpha, self.biases_steps), \
@@ -70,8 +73,8 @@ class HeavyBallGradient():
 		return weights_updates + self.momentum * last_weights_update, biases_updates + self.momentum * last_biases_update
 
 class AdaGrad():
+
 	def __init__(self, n_inputs, n_units):
-		
 		self.epsilon = 1e-07
 		# create a matrix of zeros with columns as the number of inputs and rows as the number of units
 		self.Grad_weights = np.zeros((n_inputs, n_units))
@@ -84,8 +87,38 @@ class AdaGrad():
 		if self.waiting < 0:
 			return -step * grad_weights, -step * grad_biases
 		else: 
-
 			self.Grad_weights = np.square(grad_weights) + self.Grad_weights
 			self.Grad_biases = np.square(grad_biases)	+ self.Grad_biases
 		
 			return np.multiply(np.divide(- step , np.sqrt(self.Grad_weights + self.epsilon)) , grad_weights) , -step * grad_biases
+
+class ConjugateGradient():
+	'''
+    Implementation of Conjugate Gradient descent optimization algorithm.
+	Variants depend on the Beta formula. FR/HS/PR/HS+/PR+.
+
+	Attributes
+	----------
+
+    Methods
+	-------
+	__init__(self, step, momentum):
+		Input:
+			step (Float) : learning step
+			Nesterov (Bool) : whether optimizer must use Nesterov momentum or not
+
+	__call__(self, grad_weights, grad_biases, last_weights_update, last_biases_update, rprop):
+		Input: 
+			grad_weights (np.array) : gradient of the loss with respect to the weights
+			grad_biases (np.array) : gradient of the loss with respect to the biases
+			last_weights_update (np.array) : update on weights of previous step
+			last_biases_update (np.array) : update on biases of previous step
+			rprop (Bool) : whether to apply rprop variant or standard backprop
+		Output:
+			updates on weights (np.array) : update to apply to weights for current optimization step
+			updates on biases (np.array) : update to apply to biases for current optimization step
+    '''
+    
+	def __init__(self, variant, ):
+		if variant not in ['FR', 'HS', 'BR', 'HS+', 'BR+']:
+			raise ValueError('Variant must be one of FR, HS, BR, HS+, BR+')

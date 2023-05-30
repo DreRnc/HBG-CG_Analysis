@@ -4,7 +4,6 @@ from sklearn.model_selection import train_test_split
 
 from src.Layers import Layer, FullyConnectedLayer, Dense
 from src.MetricFunctions import get_metric_instance, MetricFunction
-from src.EarlyStopping import EarlyStopping
 
 class MLP:
 
