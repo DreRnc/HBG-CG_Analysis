@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 
 from src.Layers import Layer, FullyConnectedLayer, Dense
 from src.MetricFunctions import get_metric_instance, MetricFunction
+from src.EarlyStopping import EarlyStopping
 
 class MLP:
 
@@ -154,10 +155,10 @@ class MLP:
 
         error_function = get_metric_instance(error)
         
-        # Initializes EarlyStopping
-        if early_stopping:
-            self.early_stopping = EarlyStopping(patience = patience, tolerance = tolerance, metric = self._eval_metric)
-            X, X_test, y_true, y_test = train_test_split(X, y_true, test_size = validation_split_ratio, shuffle = True, random_state = random_seed)
+        # # Initializes EarlyStopping
+        # if early_stopping:
+        #     self.early_stopping = EarlyStopping(patience = patience, tolerance = tolerance, metric = self._eval_metric)
+        #     X, X_test, y_true, y_test = train_test_split(X, y_true, test_size = validation_split_ratio, shuffle = True, random_state = random_seed)
 
         # Checks on sizes of MLP and sets
         n_samples, input_size = X.shape
@@ -216,30 +217,30 @@ class MLP:
             if verbose:
                 print("Epoch " + str(epoch) + ": " + "metric" + " = " + str(self._eval_metric(y_true, y_pred)))
 
-            # Early stopping
-            if early_stopping:
+            # # Early stopping
+            # if early_stopping:
 
-                params = [layer.get_params() for layer in self.layers]
-                stop = self.early_stopping.on_epoch_end(y_test, y_pred_test, params)
+            #     params = [layer.get_params() for layer in self.layers]
+            #     stop = self.early_stopping.on_epoch_end(y_test, y_pred_test, params)
 
-                if stop:
-                    if verbose:
-                        print(f"Early stopped training on epoch {epoch}")
-                        print(f'Best epoch was {self.early_stopping._best_epoch}')
-                    best_params = self.early_stopping._best_params
-                    for layer, layer_best_params in zip(self.layers, best_params):
-                        layer.set_params(layer_best_params)
+            #     if stop:
+            #         if verbose:
+            #             print(f"Early stopped training on epoch {epoch}")
+            #             print(f'Best epoch was {self.early_stopping._best_epoch}')
+            #         best_params = self.early_stopping._best_params
+            #         for layer, layer_best_params in zip(self.layers, best_params):
+            #             layer.set_params(layer_best_params)
 
-                    # Chop curves
-                    self.learning_curve = self.learning_curve[:epoch]
-                    self.validation_curve = self.validation_curve[:epoch]
-                    self.learning_accuracy_curve = self.learning_accuracy_curve[:epoch] 
-                    self.test_accuracy_curve = self.test_accuracy_curve[:epoch]
-                    break
-                elif epoch == n_epochs - 1:
-                    best_params = self.early_stopping._best_params
-                    for layer, layer_best_params in zip(self.layers, best_params):
-                        layer.set_params(layer_best_params)
+            #         # Chop curves
+            #         self.learning_curve = self.learning_curve[:epoch]
+            #         self.validation_curve = self.validation_curve[:epoch]
+            #         self.learning_accuracy_curve = self.learning_accuracy_curve[:epoch] 
+            #         self.test_accuracy_curve = self.test_accuracy_curve[:epoch]
+            #         break
+            #     elif epoch == n_epochs - 1:
+            #         best_params = self.early_stopping._best_params
+            #         for layer, layer_best_params in zip(self.layers, best_params):
+            #             layer.set_params(layer_best_params)
 
 
 
@@ -310,10 +311,10 @@ class RandomizedMLP(MLP):
 
         error_function = get_metric_instance(error)
         
-        # Initializes EarlyStopping
-        if early_stopping:
-            self.early_stopping = EarlyStopping(patience = patience, tolerance = tolerance, metric = self._eval_metric)
-            X, X_test, y_true, y_test = train_test_split(X, y_true, test_size = validation_split_ratio, shuffle = True, random_state = random_seed)
+        # # Initializes EarlyStopping
+        # if early_stopping:
+        #     self.early_stopping = EarlyStopping(patience = patience, tolerance = tolerance, metric = self._eval_metric)
+        #     X, X_test, y_true, y_test = train_test_split(X, y_true, test_size = validation_split_ratio, shuffle = True, random_state = random_seed)
 
         # Checks on sizes of MLP and sets
         n_samples, input_size = X.shape
@@ -370,27 +371,27 @@ class RandomizedMLP(MLP):
             if verbose:
                 print("Epoch " + str(epoch) + ": " + "metric" + " = " + str(self._eval_metric(y_true, y_pred)))
 
-            # Early stopping
-            if early_stopping:
+            # # Early stopping
+            # if early_stopping:
 
-                params = [layer.get_params() for layer in self.layers]
-                stop = self.early_stopping.on_epoch_end(y_test, y_pred_test, params)
+            #     params = [layer.get_params() for layer in self.layers]
+            #     stop = self.early_stopping.on_epoch_end(y_test, y_pred_test, params)
 
-                if stop:
-                    if verbose:
-                        print(f"Early stopped training on epoch {epoch}")
-                        print(f'Best epoch was {self.early_stopping._best_epoch}')
-                    best_params = self.early_stopping._best_params
-                    for layer, layer_best_params in zip(self.layers, best_params):
-                        layer.set_params(layer_best_params)
+            #     if stop:
+            #         if verbose:
+            #             print(f"Early stopped training on epoch {epoch}")
+            #             print(f'Best epoch was {self.early_stopping._best_epoch}')
+            #         best_params = self.early_stopping._best_params
+            #         for layer, layer_best_params in zip(self.layers, best_params):
+            #             layer.set_params(layer_best_params)
 
-                    # Chop curves
-                    self.learning_curve = self.learning_curve[:epoch]
-                    self.validation_curve = self.validation_curve[:epoch]
-                    self.learning_accuracy_curve = self.learning_accuracy_curve[:epoch] 
-                    self.test_accuracy_curve = self.test_accuracy_curve[:epoch]
-                    break
-                elif epoch == n_epochs - 1:
-                    best_params = self.early_stopping._best_params
-                    for layer, layer_best_params in zip(self.layers, best_params):
-                        layer.set_params(layer_best_params)
+            #         # Chop curves
+            #         self.learning_curve = self.learning_curve[:epoch]
+            #         self.validation_curve = self.validation_curve[:epoch]
+            #         self.learning_accuracy_curve = self.learning_accuracy_curve[:epoch] 
+            #         self.test_accuracy_curve = self.test_accuracy_curve[:epoch]
+            #         break
+            #     elif epoch == n_epochs - 1:
+            #         best_params = self.early_stopping._best_params
+            #         for layer, layer_best_params in zip(self.layers, best_params):
+            #             layer.set_params(layer_best_params)
