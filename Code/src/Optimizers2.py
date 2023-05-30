@@ -58,7 +58,6 @@ class Optimizer:
             for batch in batches:
                 self._step(batch)
 
-        return self.model
 
 class HBG(Optimizer):
 
@@ -118,13 +117,22 @@ class CG(Optimizer):
         self.eps = eps
         self.sfgrd = sfgrd
 
-        self.last_grad_theta = 0
-        self.last_d = 0
+        self.last_grad_params = []
+        self.last_d = []
+        for layer in self.model.layers:
+            self.last_grad_theta.append(np.zeros(layer.weights.shape()))
+            self.last_grad_theta.append(np.zeros(layer.biases.shape()))
+            self.last_d.append(np.zeros(layer.weights.shape()))
+            self.last_d.append(np.zeros(layer.biases.shape()))
 
     def _phi(self, alpha, d):
 
+        # compute tomography and its derivative
         self._update_params(alpha, d)
         phi, phip = self.forward_backward()
+
+        # reset model to current params
+        self.model.set_params(self._current_params)
 
         return phi, phip
 
@@ -177,14 +185,24 @@ class CG(Optimizer):
         
         self._current_params = self.model.get_params
         
-        J, grad_theta = self.forward_backward()
-        
-        if self.beta == "FR":
-            beta = np.norm(grad_theta)**2/np.norm(self.last_grad_theta)**2
-            
-        d = - grad_theta + beta * self.last_d
+        J, grad_params = self.forward_backward()
 
-        alpha = self._AWLS(d, J, grad_theta)
+        grad_params_flat = grad_params[0].flatten()
+        last_grad_params_flat = self.last_grad_params[0].flatten()
+        last_d_flat = self.last_d[0].flatten()
+
+        for l in range(1, 2*len(self.model.layers)):
+
+            grad_params_flat.concatenate(grad_params[l].flatten())
+            last_grad_params_flat.concatenate(self.last_grad_params[l].flatten())
+            last_d_flat.concatenate(self.last_d[l].flatten())
+
+        if self.beta == "FR":
+            beta = np.norm(grad_params_flat)**2/np.norm(self.last_grad_params_flat)**2
+    
+        d = - grad_params + beta * self.last_d
+
+        alpha = self._AWLS(d, J, grad_params)
 
         self._update_params(d, alpha)
             
