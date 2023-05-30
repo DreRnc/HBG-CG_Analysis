@@ -175,8 +175,6 @@ class CG(Optimizer):
                 phipm = phip_a
             else:
                 alpha_s = alpha
-                if alpha_s <= self.min_alpha:
-                    break
                 phips = phip_a
                 
             return alpha
