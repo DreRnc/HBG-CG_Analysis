@@ -55,7 +55,8 @@ class Optimizer:
     def fit_model(self, X, y):
 
         while not self.stopping_conditions:
-            self._step(X, y)
+            for batch in batches:
+                self._step(batch)
 
         return self.model
 
@@ -173,20 +174,18 @@ class CG(Optimizer):
             return alpha
 
     def _step(self):
-
-        for batch in batches:
-
-            self._current_params = self.model.get_params
-
-            J, grad_theta = self.forward_backward()
-
-            if self.beta == "FR":
-                beta = np.norm(grad_theta)**2/np.norm(self.last_grad_theta)**2
+        
+        self._current_params = self.model.get_params
+        
+        J, grad_theta = self.forward_backward()
+        
+        if self.beta == "FR":
+            beta = np.norm(grad_theta)**2/np.norm(self.last_grad_theta)**2
             
-            d = - grad_theta + beta * self.last_d
+        d = - grad_theta + beta * self.last_d
 
-            alpha = self._AWLS(d, J, grad_theta)
+        alpha = self._AWLS(d, J, grad_theta)
 
-            self._update_params(d, alpha)
+        self._update_params(d, alpha)
             
 
