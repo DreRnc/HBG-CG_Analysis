@@ -57,6 +57,22 @@ class MLP():
                 new_layer = FullyConnectedLayer(layer_units[l], layer_units[l-1])
                 
             self.layers.append(new_layer)
+    
+    def initialize(self, weight_initialization= 'scaled', weight_scale = 0.01, weight_mean = 0):
+
+        """
+        Initializes the weights of the network with random values.
+
+        Parameters
+        ----------
+        weight_initialization (str) : type of weight initialization
+        weight_scale (float) : scale of the weights
+        weight_mean (float) : mean of the weights
+
+        """
+
+        for layer in self.layers:
+            layer.initialize(weight_initialization, weight_scale, weight_mean)
 
     def __call__(self, X):
 
@@ -81,7 +97,7 @@ class MLP():
             X = layer.forward(X)
         return X
     
-    def backward(self, grad_output):
+    def backward(self, grad_output, regularization_function):
 
         """
         Performs backward pass, computing gradients with respect to all parameters.
@@ -89,6 +105,7 @@ class MLP():
         Parameters
         ----------
         grad_output (np.array) : (batch_size x n_outputs) the gradient of objective function J with repsect to outputs
+        regularization (RegularizationFunction) : regularization object that computes regularization term
 
         Returns
         -------
@@ -96,12 +113,14 @@ class MLP():
 
         """
         grad_params = []
-
-        for layer in self.layers.reverse():
-            grad_layer, grad_output = layer.backward(grad_output)
+        
+        for layer in reversed(self.layers):
+            grad_layer, grad_output = layer.backward(grad_output, regularization_function)
             grad_params.append(grad_layer)
 
-        return grad_params
+        # We want to output from the first layer to the last
+
+        return grad_params[::-1]
     
     def get_params(self):
 

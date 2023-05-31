@@ -63,14 +63,14 @@ class L1Reg(ElasticReg):
     '''
     Computes the L1 (Lasso) regularization function, which is the sum of the absolute value of the weights in the model.
     '''
-    def set_coefficients(self, alpha_l1):
+    def set_coefficients(self, alpha_l1, alpha_l2):
         super().set_coefficients(alpha_l1, 0)
 
 class L2Reg(ElasticReg):
     '''
     Computes the L2 (Ridge) regularization effect, which is the sum of the squared weights in the model.
     '''
-    def set_coefficients(self, alpha_l2):
+    def set_coefficients(self, alpha_l1, alpha_l2):
         super().set_coefficients(0, alpha_l2)
 
 
@@ -83,7 +83,7 @@ class NoReg(ElasticReg):
 
 
 
-def get_regularization_instance(reg_type, alpha_l1, alpha_l2):
+def get_regularization_instance(reg_type):
     '''
     Returns an instance of the regularization function class indicated in the input, if present, else returns ValueError.
 
@@ -98,12 +98,12 @@ def get_regularization_instance(reg_type, alpha_l1, alpha_l2):
     (RegularizationFunction) : Instance of the requested regularization function
     '''
     if reg_type in ['L1', 'Lasso', 'lasso', 'l1']:
-        return L1Reg(alpha_l1, alpha_l2)
+        return L1Reg()
     elif reg_type in ['L2', 'Ridge', 'ridge', 'l2']:
-        return L2Reg(alpha_l1, alpha_l2)
+        return L2Reg()
     elif reg_type in ['Elastic', 'ElasticNet', 'elastic', 'elasticnet']:
-        return ElasticReg(alpha_l1, alpha_l2)
+        return ElasticReg()
     elif reg_type in ['None', 'No', 'no', 'none']:
-        return NoReg(alpha_l1, alpha_l2)
+        return NoReg()
     else:
         raise ValueError('Regularization function not recognized')

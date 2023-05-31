@@ -5,12 +5,14 @@ from src.MetricFunctions import get_metric_instance
 class Optimizer:
 
     """
-    Attributes : 
+    Attributes: 
     self.model
     self.loss
     self.regularization
     self.batch_size
     self.stopping_conditions
+    self.obj_history
+
 
 
     Methods: 
@@ -22,27 +24,34 @@ class Optimizer:
     self._update_params
     self._step
     self.fit_model
+    self.verify_stop_conditions
+
 
     """
 
-    def __init__(self, model, loss, regularization):
+    def __init__(self, model, loss, regularization_function, stopping_criterion):
 
         """
         Construct an Optimizer object.
 
         Parameters
         ----------
-        model (Model) : model to optimize
-        loss (Loss) : loss function to optimize
-        regularization (Regularization) : regularization to optimize
-
+        model (MLP) : model to optimize
+        loss (str) : loss function to optimize 
+        regularization (str) : regularization function to optimize
+        stopping_criterion (str) : stopping condition for the optimization (e.g. max number of iterations
         """
 
         self.model = model
         self.loss = get_metric_instance(loss)
-        self.regularization = get_regularization_instance(regularization)
+        self.regularization_function = get_regularization_instance(regularization_function)
 
-    def initialize(self, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0):
+        if stopping_criterion not in ["max_epochs", "obj_tol", "grad_tol"]:
+            raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_tol'")
+        else:
+            self.stopping_criterion = stopping_criterion
+
+    def initialize(self, stopping_value, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False):
 
         """
         Initialize the optimizer with all the parameters needed for the optimization.
@@ -55,11 +64,27 @@ class Optimizer:
         alpha_l2 (float) : regularization parameter for l2 regularization
 
         """
+        self.verbose = verbose
         self.batch_size = batch_size
-        self.regularization.set_coefficients(alpha_l1, alpha_l2)
+        self.regularization_function.set_coefficients(alpha_l1, alpha_l2)
 
+        match self.stopping_criterion:
+            case "max_epochs":
+                if type(stopping_value) != int:
+                    raise ValueError("Stopping criterion must be an integer")
+                self.max_epochs = stopping_value
+            case "obj_tol":
+                if type(stopping_value) != float:
+                    raise ValueError("Stopping criterion must be a float")
+                self.obj_tol = stopping_value
+            case "grad_tol":
+                if type(stopping_value) != float:
+                    raise ValueError("Stopping criterion must be a float")
+                self.grad_tol = stopping_value
+            case _:
+                raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_tol'")
 
-    def _objective_function(self, y_pred, y):
+    def _objective_function(self, y, y_pred):
 
         """
         Compute the objective function of the optimization problem.
@@ -74,20 +99,47 @@ class Optimizer:
         J (float) : objective function of the optimization problem
         
         """
+        J = self.loss(y, y_pred)
+        self.loss_history.append(J)
 
-        J = self.loss(y_pred,y)
-        for layer in self.model.layers:
-            J = J + self.regularization(layer.weights)
+        params = self.model.get_params()
+
+        for layer_params in params:
+            J += self.regularization_function(layer_params["weights"])
 
         return J
 
     def _forward_backward(self, X, y):
 
-        y_pred = self.model(X)
-        J = self.objective_function(y_pred, y)
-        grad_output = self.loss.derivative(y_pred, y)
-        grad_params = self.model.backward(grad_output)
+        """
+        Compute the objective function and the gradients of the objective function with respect to the parameters.
+        Gradient norm is computed only if needed as stopping condition, as it is a costly operation.
         
+        Parameters
+        ----------
+        X (np.array) : input data
+        y (np.array) : ground truth values
+        
+        Returns
+        -------
+        J (float) : objective function of the optimization problem
+        grad_params (list) : list of dictionaries containing the gradients of the objective function with respect to the parameters
+        
+        """
+        y_pred = self.model(X)
+        J = self._objective_function(y, y_pred)
+        self.obj_history.append(J)
+
+        grad_output = self.loss.derivative(y, y_pred)
+        grad_params = self.model.backward(grad_output, self.regularization_function)
+
+        if self.stopping_criterion == "grad_tol" or True: #### DONE FOR TESTING PURPOSES
+            grad_norm = 0
+            for grad_layer in grad_params:
+                for grad in grad_layer.values():
+                    grad_norm += np.sum(grad**2)
+            self.grad_norm = np.sqrt(grad_norm)
+
         return J, grad_params
     
     def _update_params(self):
@@ -129,9 +181,28 @@ class Optimizer:
         y (np.array) : ground truth values
 
         """
-        while not self.stopping_conditions():
+        # Initialize the values for stopping conditions at the beginning of the optimization
+        self.n_epochs = 0
+        self.obj_history = []
+        self.loss_history = []
+        self.grad_norm = np.inf
+        self.last_update = []
+
+        while not self.verify_stopping_conditions():
             for X_batch, y_batch in self.get_batches(X, y):
                 self._step(X_batch, y_batch)
+            self.n_epochs += 1
+            if self.verbose: 
+                print(f"Epoch {self.n_epochs} - Objective function: {self.obj_history[-1]} - Loss: {self.loss_history[-1]} - Gradient norm: {self.grad_norm}")
+
+    def verify_stopping_conditions(self):
+        match self.stopping_criterion:
+            case "max_epochs":
+                return self.max_epochs == self.n_epochs
+            case "obj_tolerance":
+                return self.obj_tol > self.obj_history[-1] - self.obj_history[-2]
+            case "grad_norm":
+                return self.grad_norm < self.grad_norm_tol
 
 
 class HBG(Optimizer):
@@ -141,7 +212,7 @@ class HBG(Optimizer):
     ----------
     self.model
     self.loss
-    self.regularization
+    self.regularization_function
     self.alpha : learning rate
     self.beta : momentum
     self.batch_size
@@ -159,18 +230,25 @@ class HBG(Optimizer):
 
     """
 
-    def __init__(self, model, loss, regularization):
-        super.__init__(model, loss, regularization)
-
-    def initialize(self, alpha, beta):
+    def initialize(self, stopping_value, alpha, beta, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False): 
 
         """
+        Initialize the optimizer.
+
+        Parameters
+        ----------
+        stopping_value (int or float) : stopping criterion value
+        alpha (float) : learning rate
+        beta (float) : momentum
+        batch_size (int) : batch size
+        alpha_l1 (float) : regularization parameter for l1 regularization
+        alpha_l2 (float) : regularization parameter for l2 regularization
+
         """
+        super().initialize(stopping_value, batch_size, alpha_l1, alpha_l2, verbose)
+
         self.alpha = alpha
-        self.beta = beta
-        self.last_update = []
-        for layer in self.model.layers:
-            self.last_update.append{"weights": np.zeros(layer.weights.shape), "biases": np.zeros(layer.biases.shape)}
+        self.beta = beta    
 
     def _step(self, X_batch, y_batch):
 
@@ -184,16 +262,24 @@ class HBG(Optimizer):
         
         """
         _ , grad_params = self._forward_backward(X_batch, y_batch)
-        for i, layer in enumerate(self.model.layers):
-            self.last_update[i]["weights"] = self.beta * self.last_update[i]["weights"] - self.alpha * grad_params[i]["weights"]
-            self.last_update[i]["biases"] = self.beta * self.last_update[i]["biases"] - self.alpha * grad_params[i]["biases"]
-
+        
+        if self.last_update:
+            for i in range(len(self.model.layers)):
+                self.last_update[i]["weights"] = self.beta * self.last_update[i]["weights"] - self.alpha * grad_params[i]["weights"]
+                self.last_update[i]["biases"] = self.beta * self.last_update[i]["biases"] - self.alpha * grad_params[i]["biases"]
+        else: 
+            for i in range(len(self.model.layers)):
+                self.last_update.append({"weights": - self.alpha * grad_params[i]["weights"], "biases": - self.alpha * grad_params[i]["biases"]})
+        
+        """
+        print(self.model.layers)
+        for layer in range(len(self.model.layers)):
+            print(layer)
+            for value in self.last_update[layer].values():
+                print(value.shape)
+        """
+        
         self.model.update_params(self.last_update)
-
-
-
-
-
 
 
 class CG(Optimizer):
@@ -218,9 +304,6 @@ class CG(Optimizer):
     self.fit_model
 
     """
-
-    def __init__(self):
-        super.__init__()
 
     def initialize(self, beta, m1, m2, MaxFeval, tau, delta, eps, sfgrd):
 
@@ -319,5 +402,3 @@ class CG(Optimizer):
         alpha = self._AWLS(d, J, grad_params)
 
         self._update_params(d, alpha)
-            
-
