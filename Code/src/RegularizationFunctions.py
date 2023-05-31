@@ -5,20 +5,22 @@ class RegularizationFunction():
     Base class for regularization functions.
 
     Methods to override:
-        __init__(self, alpha_l1, alpha_l2): Initialises the class with the alpha parameters; not implemented
+        set_coefficients(self, alpha_l1, alpha_l2): Sets the alpha parameters; not implemented
             Input:
                 alpha_l1 (Float) : parameter for L1 component
                 alpha_l2 (Float) : parameter for L2 component
+
         __call__(self,w): Output of function; not implemented
             Input: 
                 w (np.array) : weights
             Output: Error
+
         derivative(self,w): Derivative of function; not implemented
             Input: 
                 w (np.array) : weights
             Output: Error
     '''
-    def __init__(self, alpha_l1, alpha_l2):
+    def set_coefficients(self, alpha_l1, alpha_l2):
         raise NotImplementedError
     def __call__(self, w):
         raise NotImplementedError
@@ -30,23 +32,24 @@ class ElasticReg(RegularizationFunction):
     Base class for regularization functions.
 
     Methods:
-        __init__(self, alpha_l1, alpha_l2): Initialises the class with the alpha parameters; not implemented
+        set_coefficients(self, alpha_l1, alpha_l2): Sets the alpha parameters
             Input:
                 alpha_l1 (Float) : parameter for L1 component
                 alpha_l2 (Float) : parameter for L2 component
+
         __call__(self,w): Output of function; not implemented
             Input: 
                 w (np.array) : weights
             Output: 
                 (Float) : value of regularization function
+
         derivative(self,w): Derivative of function; not implemented
             Input: 
                 w (np.array) : weights
             Output: 
                 (Float) : derivative of regularization function with respect to weights
     '''
-
-    def __init__(self, alpha_l1, alpha_l2):
+    def set_coefficients(self, alpha_l1, alpha_l2):
         self.alpha_l1 = alpha_l1
         self.alpha_l2 = alpha_l2
 
@@ -60,25 +63,23 @@ class L1Reg(ElasticReg):
     '''
     Computes the L1 (Lasso) regularization function, which is the sum of the absolute value of the weights in the model.
     '''
-
-    def __init__(self, alpha_l1, alpha_l2):
-        super().__init__(alpha_l1, 0)
+    def set_coefficients(self, alpha_l1):
+        super().set_coefficients(alpha_l1, 0)
 
 class L2Reg(ElasticReg):
     '''
     Computes the L2 (Ridge) regularization effect, which is the sum of the squared weights in the model.
     '''
-
-    def __init__(self, alpha_l1, alpha_l2):
-        super().__init__(0, alpha_l2)
+    def set_coefficients(self, alpha_l2):
+        super().set_coefficients(0, alpha_l2)
 
 
 class NoReg(ElasticReg):
     '''
     Computes no regularization, i.e. call and derivative return zero.
     '''
-    def __init__(self, alpha_l1, alpha_l2):
-        super().__init__(0, 0)
+    def set_coefficients(self, alpha_l1, alpha_l2):
+        super().set_coefficients(0, 0)
 
 
 

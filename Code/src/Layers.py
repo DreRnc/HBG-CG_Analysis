@@ -32,25 +32,22 @@ class FullyConnectedLayer(Layer):
 
     Attributes
     ----------
-    self.n_units (int) : number of units of the layer
-    self.n_inputs_per_unit (int) : number of inputs per unit, i.e. number of units of previous layer
-    self._weights (np.array) : dimensions (n_inputs_per_unit x n_units)
-    self._biases (np.array) : dimension (1, self.n_units)
-    self._last_weights_update (np.array) : update of weights on last optimization step
-    self._last_biases_update (np.array) : update of biases on last optimization step
-    self.optimizer (HeavyBallGradient): optimizer for weights and biases updates
-    self.rprop (Bool) : whether to apply rprop variant or standard backprop
-    self.regularization_function (RegularizationFunction) : regularization function instance for layer
-    self._input (np.array) : inputs saved at each step, to use for backprop
+    n_units (int): number of units of the layer
+    n_inputs_per_unit (int): number of inputs per unit, i.e. number of units of previous layer
+    weights (np.array): weights of the layer, shape (n_units, n_inputs_per_unit)
+    biases (np.array): biases of the layer, shape (n_units, 1)
+    activation_function (str): name/alias of activation function for all activation layers
+    activation (np.array): activation of the layer, shape (n_units, 1)
     
     Methods
     -------
-    __init__ : initialize only properties of the layer that are intrinsic to the structure of the MLP
-    initialize : initialize properties of the fully connected layer which are specific for each fit
-    get_params : gets the parameters from the layer
-    set_params : set the parameters of the layer
-    forward : performs linear transformation on input
-    backprop : performs backpropagation, updating weights and biases, and passing gradient for previous layer
+    __init__ : initializes the layer
+    initialize : initializes the layer for a specific fit
+    forward : computes the activation of the layer
+    backprop : computes the gradient of the loss with respect to the weights and biases of the layer
+    get_params : returns the weights and biases of the layer
+    set_params : sets the weights and biases of the layer
+    update_params : updates the weights and biases of the layer
 
     """
     
@@ -69,29 +66,18 @@ class FullyConnectedLayer(Layer):
         self.n_units = n_units
         self.n_inputs_per_unit = n_inputs_per_unit
 
-    def initialize(self, weights_initialization, weights_scale, weights_mean, regularization, alpha_l1, alpha_l2, step, momentum, Nesterov, rprop, adaptive_gradient):
-
-        """
-        Initializes properties of the fully connected layer which are specific for each fit;
-        function is infact called whenever starting a new fit.
+    def initialize(self, weights_initialization, weights_scale, weights_mean):
         
+        """
+        Initializes the weights and biases of the layer.
+
         Parameters
         ----------
-        weights_initialization (str): type of initialization for weights
-        weights_scale (float): std of the normal distribution for initialization of weights
-        weights_mean (float): mean of the normal distribution for initialization of weights
-        regularization (RegularizationFunction): regularization function for the layer
-        alpha_l1 (Float) : parameter for L1 component of regularization
-        alpha_l2 (Float) : parameter for L2 component of regularization
-        step (Float) : learning step
-        momentum (Float) : coefficient for momentum, multiplying last step updates for wieghts and biases
-		Nesterov (Bool) : whether optimizer must use Nesterov momentum or not
-        rprop (Bool) : whether to apply rprop variant or standard backprop
-        adaptive_gradient (bool) : whether to apply adaptive gradient or not
+        weights_initialization (str) : name/alias of the initialization method
+        weights_scale (float) : scale of the weights initialization
+        weights_mean (float) : mean of the weights initialization   
 
         """
-        
-        # Weight initialization
         if weights_initialization == "scaled":
             scale = weights_scale
         elif weights_initialization == "xavier":
@@ -101,27 +87,9 @@ class FullyConnectedLayer(Layer):
         else:
             print("invalid weigths initialization: choose one between 'scaled', 'xavier', 'he' ")
 
-        self._weights = np.random.normal(loc = weights_mean, scale = scale, size = (self.n_inputs_per_unit, self.n_units))
+        self.weights = np.random.normal(loc = weights_mean, scale = scale, size = (self.n_inputs_per_unit, self.n_units))
         
-        self._biases = np.zeros((1, self.n_units))
-
-        # Set all updates and gradients to zero at initialization
-        self._last_weights_update = 0
-        self._last_biases_update = 0
-
-        # for Rprop
-        self._last_grad_weights = 0
-        self._last_grad_biases = 0
-
-        # Optimizer initialization
-        self.optimizer = HeavyBallGradient(step, momentum, Nesterov, rprop, adaptive_gradient, self.n_inputs_per_unit, self.n_units)
-
-        # Rprop: True or False
-        self.rprop = rprop
-
-        # Regularization function
-        self.regularization_function = get_regularization_instance(regularization, alpha_l1, alpha_l2)
-
+        self.biases = np.zeros((1, self.n_units))
 
     def get_params(self):
 
@@ -137,7 +105,7 @@ class FullyConnectedLayer(Layer):
 
         """
 
-        return {"weights": self._weights.copy(), "biases": self._biases.copy()}
+        return {"weights": self.weights.copy(), "biases": self._biases.copy()}
 
     def set_params(self, params):      
           
@@ -153,8 +121,8 @@ class FullyConnectedLayer(Layer):
 
         """
 
-        self._weights = params["weights"]
-        self._biases = params["biases"]
+        self.weights = params["weights"]
+        self.biases = params["biases"]
 
     def update_params(self, updates):
 
@@ -170,8 +138,8 @@ class FullyConnectedLayer(Layer):
 
         """
 
-        self._weights += updates["weights"]
-        self._biases += updates["biases"]
+        self.weights += updates["weights"]
+        self.biases += updates["biases"]
 
     def forward(self, input):
         
@@ -194,7 +162,7 @@ class FullyConnectedLayer(Layer):
         # Saves values for backprop
         self._input = input        
 
-        return np.matmul(input, self._weights) + self._biases
+        return np.matmul(input, self.weights) + self._biases
 
 
 
@@ -210,15 +178,15 @@ class FullyConnectedLayer(Layer):
 
         Returns
         -------
-        grad_layer (list of np.array) : gradient of objective function with respect to weights and biases of this layer
+        grad_layer (np.array) : ((n_inputs_per_unit + 1) x n_units) matrix of gradients with respect to weights and biases
         grad_input (np.array) : gradient of objective function with respect to input of this layer (i.e. output of previous layer)
 
         """
-        grad_input = np.matmul(grad_output, weights.T)
+        grad_input = np.matmul(grad_output, self.weights.T)
         grad_weights = np.matmul(self._input.T, grad_output) + self.regularization_function.derivative(self.weights)
         grad_biases = grad_output.sum(axis = 0, keepdims = True)
 
-        grad_layer = [grad_weights, grad_biases]
+        grad_layer = {"weights": grad_weights, "biases": grad_biases}
 
         return grad_layer, grad_input
 
@@ -308,12 +276,13 @@ class Dense(Layer):
     
     Methods
     -------
-    __init__ : initialize only properties of the layer that are intrinsic to the structure of the MLP
-    initialize : initialize properties of the fully connected layer which are specific for each fit
-    get_params : gets the parameters from the fully connected part of the layer
-    set_params : set the parameters of the fully connected part of the layer
-    forward : performs linear transformation and activation on input
-    backprop : performs backpropagation, updating weights and biases, and passing gradient to previous layer
+    __init__ : initialize dense layer with its activation function
+    forward : performs linear transformation on input
+    backprop : performs backpropagation, updating weights and biases, and passing gradient for previous layer
+    get_params : returns parameters of the layer
+    set_params : sets parameters of the layer
+    update_params : updates parameters of the layer
+
     """
 
     def __init__(self, n_units, n_inputs_per_unit, activation):
@@ -355,6 +324,17 @@ class Dense(Layer):
         """
 
         self._fully_connected_layer.initialize(weights_initialization, weights_scale, weights_mean, regularization, alpha_l1, alpha_l2, step, momentum, Nesterov, rprop, adaptive_gradient)
+
+    def update_params(self, update):
+
+        """
+        Updates the parameters of the FC layer.
+
+        (See documentation in fully connected layer class)
+
+        """
+
+        self._fully_connected_layer.update_params(update)
 
     def get_params(self):
 
