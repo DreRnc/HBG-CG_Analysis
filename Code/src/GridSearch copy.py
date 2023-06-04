@@ -214,6 +214,36 @@ class GridSearch():
             cv = KFold(n_splits = n_folds)
             self.folds = list(cv.split(self.X, self.y))
 
+    def eta(self, par_combinations, get_eta):
+        '''
+        Compute the eta of the grid search.
+
+        Parameters
+        ----------
+        par_combinations (List): The combinations of parameters to be tested
+        get_eta (Bool): If True the eta is computed
+        '''
+        num_of_iter = 260
+        
+        if get_eta:
+            print('Computing ETA')
+            if len(par_combinations) < num_of_iter:
+                pass
+                print('Eta is short')
+            else:
+                # start counting the time
+                start = time.time()
+                eta_combinations = random.sample(par_combinations, num_of_iter)
+                with concurrent.futures.ProcessPoolExecutor() as executor:
+                    futures = [executor.submit(self.compute, values, len(eta_combinations)) for values in eta_combinations]
+
+                    concurrent.futures.wait(futures)
+                    #self.i = 0
+                end = time.time()
+                eta = (end - start) * len(par_combinations) / num_of_iter
+                # get the time in hours
+                eta = eta / 3600
+                print(f'ETA: {eta} hours')
 
     def clean_output(self):
         '''
@@ -223,6 +253,7 @@ class GridSearch():
             self.results = [ [self.scores[i], self.par[i], self.scores_list[i] ] for i in range(len(self.scores)) ]
         else:
             self.results = [ [self.scores[i], self.par[i]] for i in range(len(self.scores)) ]
+
         if self.model.task == 'regression':
             self.results.sort(key = lambda x: x[0])
         elif self.model.task == 'classification':
