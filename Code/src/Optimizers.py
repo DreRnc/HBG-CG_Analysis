@@ -287,7 +287,8 @@ class HBG(Optimizer):
 class CG(Optimizer):
 
     """
-    Attributes : 
+    Attributes :
+    self.beta_type 
     self.model
     self.loss
     self.regularization
@@ -307,10 +308,13 @@ class CG(Optimizer):
 
     """
 
-    def initialize(self, beta_variant, m1, m2, MaxFeval, tau, delta, eps, sfgrd):
-        
-        
-        self.beta_variant = beta_variant
+    def initialize(self, beta_type = "FR", m1 = 0.25, m2 = 0.4, MaxFeval = 20, \
+                   tau = 0.9, delta = 1e-4, eps = 1e-6, sfgrd = 0.2, \
+                    stopping_value = 1000, batch_size = -1, alpha_l1 = 0, alpha_l2 = 0.001, verbose = True):
+
+        super().initialize(stopping_value, batch_size, alpha_l1, alpha_l2, verbose)
+
+        self.beta_type = beta_type
         self.m1 = m1
         self.m2 = m2
         self.MaxFeval = MaxFeval
@@ -321,87 +325,108 @@ class CG(Optimizer):
 
         self.last_grad_params = []
         self.last_d = []
-        for layer in self.model.layers:
-            self.last_grad_params.append(np.zeros(layer.weights.shape()))
-            self.last_grad_params.append(np.zeros(layer.biases.shape()))
-            self.last_d.append(np.zeros(layer.weights.shape()))
-            self.last_d.append(np.zeros(layer.biases.shape()))
 
-    def _phi(self, alpha, d):
+        params = self.model.get_params()
+        for l in range(len(self.model.layers)):
+            self.last_grad_params.append({"weights" : np.zeros(np.shape(params[l]["weights"])),\
+                                          "biases" : np.zeros(np.shape(params[l]["biases"]))})
+            self.last_d.append({"weights" : np.zeros(np.shape(params[l]["weights"])),\
+                                          "biases" : np.zeros(np.shape(params[l]["biases"]))})
+    def _flatten(self,d):
+        d_flat = d[0]["weights"].flatten()
+        d_flat = np.concatenate((d_flat,d[0]["biases"].flatten()))
+        for l in range(1, len(d)):
+            d_flat = np.concatenate((d_flat, d[l]["weights"].flatten()))
+            d_flat= np.concatenate((d_flat, d[l]["biases"].flatten()))
+        return d_flat
+
+    def _update_params(self, alpha, d):
+        new_params = self._current_params
+        for l in range(len(new_params)):
+            new_params[l]["weights"] = new_params[l]["weights"] + alpha*d[l]["weights"]
+            new_params[l]["biases"] = new_params[l]["biases"] + alpha*d[l]["biases"]
+        self.model.set_params(new_params)
+
+    def _phi(self, alpha, d, X, y):
 
         # compute tomography and its derivative
         self._update_params(alpha, d)
-        phi, phip = self.forward_backward()
-
+        phi, phip = self._forward_backward(X,y)
+        phip = np.matmul(self._flatten(phip), self._flatten(d))
         # reset model to current params
         self.model.set_params(self._current_params)
 
         return phi, phip
 
-    def _AWLS(self, d, phi0 , phip0):
+    def _AWLS(self, d, X, y):
 
         feval = 1
-        
+        alpha_s = 0.01
+
+        [phi0 , phip0] = self._phi(0, d, X, y)
+
         while feval <= self.MaxFeval:
             
-            [ phi_as , phip_as ] = self._phi(alpha_s, d)
-            
-            if ( phi_as <= phi0 + self.m1 * alpha_s * phip0 ) and ( np.abs( phip_as ) <= - self.m2 * phip0 ):
+            [ phi_as , phip_as ] = self._phi(alpha_s, d, X, y)
+            feval = feval + 1
+            if ( phi_as <= phi0 + self.m1 * alpha_s * phip0) and ( np.abs( phip_as ) <= - self.m2 * phip0 ):
                 alpha = alpha_s
                 return alpha # Armijo + strong Wolfe satisfied, we are done
             
-            if phi_as >= 0:  # derivative is positive
+            if phip_as >= 0:  # derivative is positive
                 break
             
             alpha_s = alpha_s / self.tau
             
         alpha_m = 0;
         alpha = alpha_s;
-        phipm = phip0;
+        phip_am = phip0;
         
-        while ( feval <= self.MaxFeval ) and ( ( alpha_s - alpha_m ) ) > self.delta and ( phips > self.eps ):
+        while ( feval <= self.MaxFeval ) and ( ( alpha_s - alpha_m ) ) > self.delta and ( phip_as > self.eps ):
             # compute the new value by safeguarded quadratic interpolation
-             
-            alpha = ( alpha_m * phips - alpha_s * phipm ) / ( phips - phipm );
+            
+            alpha = ( alpha_m * phip_as - alpha_s * phip_am ) / ( phip_as - phip_am );
             alpha = np.max( np.array([alpha_m + ( alpha_s - alpha_m ) * self.sfgrd, \
                                       np.min( np.array([alpha_s - ( alpha_s - alpha_m ) * self.sfgrd, alpha]) ) ]) )
             # compute tomography
-            [ phi_a , phip_a ] = self._phi(alpha, d)
-            
+            [ phi_a , phip_a ] = self._phi(alpha, d, X, y)
+            feval = feval + 1
+
             if ( phi_a <= phi0 + self.m1 * alpha * phip0 ) and ( np.abs( phip_a ) <= - self.m2 * phip0 ):
+                print("Armijo + strong Wolfe satisfied, we are done")
                 break #Armijo + strong Wolfe satisfied, we are done
             
             # restrict the interval based on sign of the derivative in a
             if phip_a < 0:
                 alpha_m = alpha
-                phipm = phip_a
+                phip_am = phip_a
             else:
                 alpha_s = alpha
-                phips = phip_a
+                phip_as = phip_a
                 
-            return alpha
-
-    def _step(self):
+        return alpha
         
-        self._current_params = self.model.get_params
+
+    def _step(self, X, y):
         
-        J, grad_params = self.forward_backward()
+        self._current_params = self.model.get_params()
+        
+        J, grad_params = self._forward_backward(X, y)
 
-        grad_params_flat = grad_params[0].flatten()
-        last_grad_params_flat = self.last_grad_params[0].flatten()
-        last_d_flat = self.last_d[0].flatten()
+        grad_params_flat = self._flatten(grad_params)
+        last_grad_params_flat = self._flatten(self.last_grad_params)
+        last_d_flat = self._flatten(self.last_d)
+       
+        if self.beta_type == "FR":
+            if np.linalg.norm(last_grad_params_flat) !=0 :
+                beta = np.linalg.norm(grad_params_flat)**2/np.linalg.norm(last_grad_params_flat)**2
+            else:
+                beta = 0
 
-        for l in range(1, 2*len(self.model.layers)):
-
-            grad_params_flat.concatenate(grad_params[l].flatten())
-            last_grad_params_flat.concatenate(self.last_grad_params[l].flatten())
-            last_d_flat.concatenate(self.last_d[l].flatten())
-
-        if self.beta_variant == "FR":
-            beta = np.norm(grad_params_flat)**2/np.norm(self.last_grad_params_flat)**2
-    
-        d = - grad_params + beta * self.last_d
-
-        alpha = self._AWLS(d, J, grad_params)
-
-        self._update_params(d, alpha)
+        d = []
+        for l in range(len(grad_params)):
+            d.append({"weights" : - grad_params[l]["weights"] + beta * self.last_d[l]["weights"],\
+                     "biases" : - grad_params[l]["biases"] + beta * self.last_d[l]["biases"]})
+            
+        alpha = self._AWLS(d, X, y)
+        self._update_params(alpha, d)
