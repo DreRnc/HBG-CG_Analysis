@@ -29,20 +29,18 @@ class Optimizer:
 
     """
 
-    def __init__(self, model, loss, regularization_function, stopping_criterion):
+    def __init__(self, loss, regularization_function, stopping_criterion):
 
         """
         Construct an Optimizer object.
 
         Parameters
         ----------
-        model (MLP) : model to optimize
         loss (str) : loss function to optimize 
         regularization (str) : regularization function to optimize
         stopping_criterion (str) : stopping condition for the optimization (e.g. max number of iterations
         """
 
-        self.model = model
         self.loss = get_metric_instance(loss)
         self.regularization_function = get_regularization_instance(regularization_function)
 
@@ -51,7 +49,7 @@ class Optimizer:
         else:
             self.stopping_criterion = stopping_criterion
 
-    def initialize(self, stopping_value, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False):
+    def initialize(self, model, stopping_value, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False):
 
         """
         Initialize the optimizer with all the parameters needed for the optimization.
@@ -64,6 +62,7 @@ class Optimizer:
         alpha_l2 (float) : regularization parameter for l2 regularization
 
         """
+        self.model = model
         self.verbose = verbose
         self.batch_size = batch_size
         self.regularization_function.set_coefficients(alpha_l1, alpha_l2)
@@ -181,6 +180,7 @@ class Optimizer:
         y (np.array) : ground truth values
 
         """
+        
         # Initialize the values for stopping conditions at the beginning of the optimization
         self.n_epochs = 0
         self.obj_history = []
@@ -230,22 +230,24 @@ class HBG(Optimizer):
 
     """
 
-    def initialize(self, stopping_value, alpha, beta, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False): 
+    def initialize(self, model, stopping_value, alpha, beta, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False): 
 
         """
         Initialize the optimizer.
 
         Parameters
         ----------
+        model (MLP) : model to be fitted
         stopping_value (int or float) : stopping criterion value
         alpha (float) : learning rate
         beta (float) : momentum
         batch_size (int) : batch size
         alpha_l1 (float) : regularization parameter for l1 regularization
         alpha_l2 (float) : regularization parameter for l2 regularization
+        
 
         """
-        super().initialize(stopping_value, batch_size, alpha_l1, alpha_l2, verbose)
+        super().initialize(model, stopping_value, batch_size, alpha_l1, alpha_l2, verbose)
 
         self.alpha = alpha
         self.beta = beta    
@@ -285,7 +287,8 @@ class HBG(Optimizer):
 class CG(Optimizer):
 
     """
-    Attributes : 
+    Attributes :
+    self.beta_type 
     self.model
     self.loss
     self.regularization
@@ -305,13 +308,13 @@ class CG(Optimizer):
 
     """
 
-    def initialize(self, beta = "FR", m1 = 0.25, m2 = 0.4, MaxFeval = 20, \
+    def initialize(self, beta_type = "FR", m1 = 0.25, m2 = 0.4, MaxFeval = 20, \
                    tau = 0.9, delta = 1e-4, eps = 1e-6, sfgrd = 0.2, \
                     stopping_value = 1000, batch_size = -1, alpha_l1 = 0, alpha_l2 = 0.001, verbose = True):
 
         super().initialize(stopping_value, batch_size, alpha_l1, alpha_l2, verbose)
 
-        self.beta = beta
+        self.beta_type = beta_type
         self.m1 = m1
         self.m2 = m2
         self.MaxFeval = MaxFeval
@@ -414,7 +417,7 @@ class CG(Optimizer):
         last_grad_params_flat = self._flatten(self.last_grad_params)
         last_d_flat = self._flatten(self.last_d)
        
-        if self.beta == "FR":
+        if self.beta_type == "FR":
             if np.linalg.norm(last_grad_params_flat) !=0 :
                 beta = np.linalg.norm(grad_params_flat)**2/np.linalg.norm(last_grad_params_flat)**2
             else:

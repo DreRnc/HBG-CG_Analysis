@@ -1,7 +1,5 @@
 import numpy as np
 from src.ActivationFunctions import get_activation_instance
-from src.RegularizationFunctions import get_regularization_instance
-from src.Optimizers import HeavyBallGradient
 
 class Layer:
     """

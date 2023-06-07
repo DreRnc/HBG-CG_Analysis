@@ -1,5 +1,6 @@
 import numpy as np
 from src.Layers import Layer, FullyConnectedLayer, Dense
+from src.MetricFunctions import get_metric_instance
 
 
 class MLP():
@@ -58,7 +59,7 @@ class MLP():
                 
             self.layers.append(new_layer)
     
-    def initialize(self, weight_initialization= 'scaled', weight_scale = 0.01, weight_mean = 0):
+    def initialize(self, weight_initialization = 'scaled', weight_scale = 0.01, weight_mean = 0):
 
         """
         Initializes the weights of the network with random values.
@@ -167,3 +168,29 @@ class MLP():
 
         for i, layer in enumerate(self.layers):
             layer.update_params(updates[i])
+
+    def evaluate_model(self, X, y_true, metric = 'generic'):
+
+        """
+        Evaluates performance of the model on a set, given a certain metric.
+
+        Parameters
+        -----------
+        X (np.array) : (n_samples x n_inputs) input values for the network
+        y_true (np.array) : (n_samples x n_output) ground truth values of target variables for the inputs supplied
+        metric (str) : name/alias of metric used for evaluation
+
+        """
+
+        if metric != 'generic':
+            eval_metric = metric
+            eval_metric = get_metric_instance(eval_metric)
+        else:
+            if self.task == "classification":
+                eval_metric = get_metric_instance('acc')
+            else:
+                eval_metric = get_metric_instance('mse')
+
+        y_pred = self(X)
+
+        return eval_metric(y_true, y_pred)
