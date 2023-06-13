@@ -29,7 +29,7 @@ class Optimizer:
 
     """
 
-    def __init__(self, loss, regularization_function, stopping_criterion):
+    def __init__(self, loss, regularization_function = 'L2', stopping_criterion = 'max_epochs'):
 
         """
         Construct an Optimizer object.
@@ -118,7 +118,7 @@ class Optimizer:
         for layer_params in params:
             J += self.regularization_function(layer_params["weights"])
 
-        self.obj_history.append(J)
+        # self.obj_history.append(J)
 
         return J
 
@@ -223,8 +223,7 @@ class Optimizer:
                 return self.obj_tol > self.obj_history[-1] - self.obj_history[-2]
             case "grad_norm":
                 return self.grad_norm < self.grad_norm_tol
-
-
+            
 class HBG(Optimizer):
 
     """
@@ -281,7 +280,8 @@ class HBG(Optimizer):
         y_batch (np.array) : batch of ground truth values
         
         """
-        _ , grad_params = self._forward_backward(X_batch, y_batch)
+        J, grad_params = self._forward_backward(X_batch, y_batch)
+        self.obj_history.append(J)
         
         if self.last_update:
             for i in range(len(self.model.layers)):
@@ -525,6 +525,7 @@ class CG(Optimizer):
         self._current_params = self.model.get_params()
         
         J, grad_params = self._forward_backward(X, y)
+        self.obj_history.append(J)
 
         grad_params_flat = self._flatten(grad_params)
         last_grad_params_flat = self._flatten(self.last_grad_params)
