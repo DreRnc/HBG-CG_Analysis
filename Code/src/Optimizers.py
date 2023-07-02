@@ -122,8 +122,6 @@ class Optimizer:
         for layer_params in params:
             J += self.regularization_function(layer_params["weights"])
 
-        # self.obj_history.append(J)
-
         return J
 
     def _forward_backward(self, X, y):

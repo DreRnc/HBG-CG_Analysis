@@ -12,8 +12,7 @@ from sklearn.model_selection import train_test_split
 
 class GridSearch():
 
-    def __init__(self, optimizer, model):
-        
+    def __init__(self, optimizer, model, objective = 'validation'):
         '''
         Initializes the GridSearch object.
 
@@ -22,13 +21,17 @@ class GridSearch():
         optimizer (Optimizer): The optimizer to be used
         model (Model): The model to be used
         parameters_grid (Dictionary): The values of parameters to be tested
-
+        objective (String): The objective of the grid search. It can be either "validation" or "training_objective".
+            "validation" means that the score is computed on the validation set;
+            "training_objective" means that the score is computed on the training set, including the regularization term;
         '''
         self.optimizer = optimizer
         self.model = model
+        if objective not in ['validation', 'training_objective']:
+            raise ValueError('objective must be either "validation" or "training_objective"')
+        self.objective = objective
     
     def create_folds(self, n_folds, stratified):
-
         """
         Creates the folds for the cross validation.
 
@@ -40,21 +43,29 @@ class GridSearch():
         """
         if type(n_folds) != int:
             raise TypeError('n_folds must be an integer')
-
-        if n_folds < 2:
-            if stratified:
-                self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size = self.test_size, stratify = self.y, random_state = 42)
+        if n_folds < 1:
+            raise ValueError('n_folds must be greater than 1')
+        if type(stratified) != bool:
+            raise TypeError('stratified must be a boolean')
+        if stratified and self.objective == 'training_objective':
+            raise Warning('stratified is non influent when the objective is "training_objective"')
+        if self.objective == 'training_objective' and n_folds != 1:
+            raise Warning('n_folds is non influent when the objective is "training_objective"')
+        
+        if self.objective == "validation":
+            if n_folds < 2:
+                if stratified:
+                    self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size = self.test_size, stratify = self.y, random_state = 42)
+                else:
+                    self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size = self.test_size, random_state = 42)
+            elif stratified: 
+                cv = StratifiedKFold(n_splits = n_folds)
+                self.folds = list(cv.split(self.X, self.y))
             else:
-                self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size = self.test_size, random_state = 42)
-        elif stratified: 
-            cv = StratifiedKFold(n_splits = n_folds)
-            self.folds = list(cv.split(self.X, self.y))
-        else:
-            cv = KFold(n_splits = n_folds)
-            self.folds = list(cv.split(self.X, self.y))
+                cv = KFold(n_splits = n_folds)
+                self.folds = list(cv.split(self.X, self.y))
 
     def fit(self, X, y, parameters_grid, n_folds = 1, stratified = False, test_size = 0.2, verbose = True, parallel = False, random_search = False, n_random = 10, get_eta = False):
-        
         '''
         Performs the grid search.
 
@@ -73,7 +84,6 @@ class GridSearch():
         get_eta (Bool): If True returns the time it took to compute the results
 
         '''
-
         self.verbose = verbose
         self.n_folds = n_folds
         self.scores = []
@@ -108,7 +118,6 @@ class GridSearch():
         self.clean_output()
 
     def grid_search(self, par_combinations):
-        
         '''
         Performs the grid search.
 
@@ -117,11 +126,10 @@ class GridSearch():
         par_combinations (List): The list of combinations of parameters to be tested
 
         '''
-
         # If parallel is True, it uses all the cores of the CPU
         if self.parallel:
             num_cores = multiprocessing.cpu_count()
-            results = Parallel(n_jobs=num_cores)(delayed(self.fit_model)(par) for par in par_combinations)
+            results = Parallel(n_jobs = num_cores)(delayed(self.fit_model)(par) for par in tqdm(par_combinations))
         else:
             results = [self.fit_model(params) for params in tqdm(par_combinations)]
 
@@ -150,23 +158,28 @@ class GridSearch():
         # Creates a dictionary with the parameters
         parameters = dict(zip(self.parameters_grid.keys(), params))
 
-        if self.n_folds < 2:
-            self.fit_model_fold(self.X_train, self.y_train, **parameters)
-            score = self.model.evaluate_model(self.X_val, self.y_val)
+        if self.objective == 'validation':
+            if self.n_folds < 2:
+                self.fit_model_fold(self.X_train, self.y_train, **parameters)
+                score = self.model.evaluate_model(self.X_val, self.y_val)
+                scores = [score]
+            else:
+                scores = []
+                for train_index, val_index in self.folds:
+                    self.fit_model_fold(self.X[train_index], self.y[train_index], **parameters)
+                    score = self.model.evaluate_model(self.X[val_index], self.y[val_index])
+                    scores.append(score)
+                score = np.mean(scores)
+        elif self.objective == 'training_objective':
+            self.fit_model_fold(self.X, self.y, **parameters)
+            score = self.optimizer.obj_history[-1]
             scores = [score]
-        else:
-            scores = []
-            for train_index, val_index in self.folds:
-                self.fit_model_fold(self.X[train_index], self.y[train_index], **parameters)
-                score = self.model.evaluate_model(self.X[val_index], self.y[val_index])
-                scores.append(score)
-            score = np.mean(scores)
         
         self.iter += 1
 
         return score, parameters, scores
 
-    def fit_model_fold(self, X, y, **kwargs):
+    def fit_model_fold(self, X, y, **params):
         """
         Fits the model with the given parameters.
         
@@ -174,11 +187,11 @@ class GridSearch():
         ----------
         X (np.array): the input data
         y (np.array): the output data
-        **kwargs: the parameters of the model
+        **params: the parameters of the model
         
         """
         self.model.initialize()
-        self.optimizer.initialize(self.model, **kwargs)
+        self.optimizer.initialize(self.model, **params)
         self.optimizer.fit_model(X, y)
 
     def clean_output(self):
