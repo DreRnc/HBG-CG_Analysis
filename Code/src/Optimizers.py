@@ -56,8 +56,8 @@ class Optimizer:
         else:
             raise ValueError("Regularization function must be a string or a RegularizationFunction object")
 
-        if stopping_criterion not in ["max_epochs", "obj_tol", "grad_tol"]:
-            raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_tol'")
+        if stopping_criterion not in ["max_epochs", "obj_tol", "grad_norm"]:
+            raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm'")
         else:
             self.stopping_criterion = stopping_criterion
 
@@ -88,12 +88,12 @@ class Optimizer:
                 if type(stopping_value) != float:
                     raise ValueError("Stopping value for obj_tol must be a float")
                 self.obj_tol = stopping_value
-            case "grad_tol":
+            case "grad_norm":
                 if type(stopping_value) != float:
-                    raise ValueError("Stopping value for grad_tol must be a float")
-                self.grad_tol = stopping_value
+                    raise ValueError("Stopping value for grad_norm must be a float")
+                self.grad_norm = stopping_value
             case _:
-                raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_tol'")
+                raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm'")
 
     def _objective_function(self, y, y_pred):
 
