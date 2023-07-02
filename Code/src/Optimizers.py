@@ -29,7 +29,7 @@ class Optimizer:
 
     """
 
-    def __init__(self, loss, regularization_function, stopping_criterion):
+    def __init__(self, loss, regularization_function = 'L2', stopping_criterion = 'max_epochs'):
 
         """
         Construct an Optimizer object.
@@ -118,7 +118,7 @@ class Optimizer:
         for layer_params in params:
             J += self.regularization_function(layer_params["weights"])
 
-        self.obj_history.append(J)
+        # self.obj_history.append(J)
 
         return J
 
@@ -223,8 +223,7 @@ class Optimizer:
                 return self.obj_tol > self.obj_history[-1] - self.obj_history[-2]
             case "grad_norm":
                 return self.grad_norm < self.grad_norm_tol
-
-
+            
 class HBG(Optimizer):
 
     """
@@ -281,7 +280,8 @@ class HBG(Optimizer):
         y_batch (np.array) : batch of ground truth values
         
         """
-        _ , grad_params = self._forward_backward(X_batch, y_batch)
+        J, grad_params = self._forward_backward(X_batch, y_batch)
+        self.obj_history.append(J)
         
         if self.last_update:
             for i in range(len(self.model.layers)):
@@ -360,7 +360,11 @@ class CG(Optimizer):
         """
         super().initialize(model, stopping_value, batch_size, alpha_l1, alpha_l2, verbose)
         
-        self.beta_type = beta_type
+        if beta_type in ['FR', 'HS+', 'PR+']:
+            self.beta_type = beta_type
+        else:
+            raise ValueError('Insert valid beta type (FR, HS+, PR+)')
+
         self.m1 = m1
         self.m2 = m2
         self.MaxFeval = MaxFeval
@@ -525,16 +529,23 @@ class CG(Optimizer):
         self._current_params = self.model.get_params()
         
         J, grad_params = self._forward_backward(X, y)
+        self.obj_history.append(J)
 
         grad_params_flat = self._flatten(grad_params)
         last_grad_params_flat = self._flatten(self.last_grad_params)
         last_d_flat = self._flatten(self.last_d)
-       
-        if self.beta_type == "FR":
-            if np.linalg.norm(last_grad_params_flat) !=0 :
+
+        try: 
+            if self.beta_type == "FR":
                 beta = np.linalg.norm(grad_params_flat)**2/np.linalg.norm(last_grad_params_flat)**2
-            else:
-                beta = 0
+            elif self.beta_type == "HS+":
+                beta = np.max(0, np.dot(grad_params_flat, (grad_params_flat-last_grad_params_flat))/ \
+                          np.dot(last_d_flat, (grad_params_flat-last_grad_params_flat)))
+            else: #PR+
+                beta = np.max(0, np.dot(grad_params_flat, (grad_params_flat-last_grad_params_flat))/ \
+                          np.linalg.norm(last_grad_params_flat)**2)
+        except ZeroDivisionError:
+            beta = 0
 
         d = []
         for l in range(len(grad_params)):
