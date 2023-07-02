@@ -56,8 +56,8 @@ class Optimizer:
         else:
             raise ValueError("Regularization function must be a string or a RegularizationFunction object")
 
-        if stopping_criterion not in ["max_epochs", "obj_tol", "grad_norm"]:
-            raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm'")
+        if stopping_criterion not in ["max_epochs", "obj_tol", "grad_norm", "n_evaluations"]:
+            raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm', 'n_evaluations'")
         else:
             self.stopping_criterion = stopping_criterion
 
@@ -92,6 +92,10 @@ class Optimizer:
                 if type(stopping_value) != float:
                     raise ValueError("Stopping value for grad_norm must be a float")
                 self.grad_norm = stopping_value
+            case "n_evaluations":
+                if type(stopping_value) != int:
+                    raise ValueError("Stopping value for n_evaluations must be an integer")
+                self.n_evaluations = stopping_value
             case _:
                 raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm'")
 
@@ -152,6 +156,8 @@ class Optimizer:
                     grad_norm += np.sum(grad**2)
             self.grad_norm = np.sqrt(grad_norm)
 
+        self.n_forward_backward += 1
+
         return J, grad_params
     
     def _update_params(self):
@@ -183,7 +189,6 @@ class Optimizer:
                 yield X[i:i+self.batch_size], y[i:i+self.batch_size]
 
     def fit_model(self, X, y):
-
         """
         Fit the model to the data.
 
@@ -193,8 +198,10 @@ class Optimizer:
         y (np.array) : ground truth values
 
         """
+
         # Initialize the values for stopping conditions at the beginning of the optimization
         self.n_epochs = 0
+        self.n_forward_backward = 0
         self.obj_history = []
         self.loss_history = []
         self.grad_norm = np.inf
@@ -223,6 +230,8 @@ class Optimizer:
                 return self.obj_tol > self.obj_history[-1] - self.obj_history[-2]
             case "grad_norm":
                 return self.grad_norm < self.grad_norm_tol
+            case "n_evaluations":
+                return self.n_forward_backward >= self.max_evaluations
             
 class HBG(Optimizer):
 
