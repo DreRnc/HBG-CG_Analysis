@@ -46,7 +46,7 @@ class MLP():
         
         n_layers = len(layer_units) - 1 
 
-        np.random.seed(random_seed)
+        #np.random.seed(random_seed) #questo non ci serve se vogliamo inizializzare sempre in modo diverso, giusto?
 
         for l in range(1, n_layers + 1):
 

@@ -388,7 +388,7 @@ class CG(Optimizer):
             self.last_grad_params.append({"weights" : np.zeros(np.shape(params[l]["weights"])),\
                                           "biases" : np.zeros(np.shape(params[l]["biases"]))})
             self.last_d.append({"weights" : np.zeros(np.shape(params[l]["weights"])),\
-                                          "biases" : np.zeros(np.shape(params[l]["biases"]))})
+                                "biases" : np.zeros(np.shape(params[l]["biases"]))})
             
     def _flatten(self,d):
         
@@ -507,7 +507,6 @@ class CG(Optimizer):
             feval = feval + 1
 
             if ( phi_a <= phi0 + self.m1 * alpha * phip0 ) and ( np.abs( phip_a ) <= - self.m2 * phip0 ):
-                print("Armijo + strong Wolfe satisfied, we are done")
                 break #Armijo + strong Wolfe satisfied, we are done
             
             # restrict the interval based on sign of the derivative in a
@@ -542,16 +541,20 @@ class CG(Optimizer):
         last_grad_params_flat = self._flatten(self.last_grad_params)
         last_d_flat = self._flatten(self.last_d)
 
-        try: 
-            if self.beta_type == "FR":
-                beta = np.linalg.norm(grad_params_flat)**2/np.linalg.norm(last_grad_params_flat)**2
-            elif self.beta_type == "HS+":
-                beta = np.max(0, np.dot(grad_params_flat, (grad_params_flat-last_grad_params_flat))/ \
-                          np.dot(last_d_flat, (grad_params_flat-last_grad_params_flat)))
-            else: #PR+
-                beta = np.max(0, np.dot(grad_params_flat, (grad_params_flat-last_grad_params_flat))/ \
-                          np.linalg.norm(last_grad_params_flat)**2)
-        except ZeroDivisionError:
+        
+        if self.beta_type == "FR":
+            num = np.linalg.norm(grad_params_flat)**2
+            den = np.linalg.norm(last_grad_params_flat)**2
+        elif self.beta_type == "HS+":
+            num = np.dot(grad_params_flat, (grad_params_flat-last_grad_params_flat))
+            den = np.dot(last_d_flat, (grad_params_flat-last_grad_params_flat))
+        else: #PR+
+            num = np.dot(grad_params_flat, (grad_params_flat-last_grad_params_flat))
+            den = np.linalg.norm(last_grad_params_flat)**2
+        
+        if den != 0:
+            beta = max(0, num/den)
+        else:
             beta = 0
 
         d = []
@@ -561,3 +564,4 @@ class CG(Optimizer):
             
         alpha = self._AWLS(d, X, y)
         self._update_params(alpha, d)
+        self.last_d = d
