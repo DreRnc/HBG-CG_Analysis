@@ -91,7 +91,7 @@ class Optimizer:
             case "grad_norm":
                 if type(stopping_value) != float:
                     raise ValueError("Stopping value for grad_norm must be a float")
-                self.grad_norm = stopping_value
+                self.grad_norm_tol = stopping_value
             case "n_evaluations":
                 if type(stopping_value) != int:
                     raise ValueError("Stopping value for n_evaluations must be an integer")
@@ -152,7 +152,7 @@ class Optimizer:
             for grad_layer in grad_params:
                 for grad in grad_layer.values():
                     grad_norm += np.sum(grad**2)
-            self.grad_norm = np.sqrt(grad_norm)
+            self.grad_norm_history.append(np.sqrt(grad_norm))
 
         self.n_forward_backward += 1
 
@@ -202,7 +202,7 @@ class Optimizer:
         self.n_forward_backward = 0
         self.obj_history = []
         self.loss_history = []
-        self.grad_norm = np.inf
+        self.grad_norm_history = []
         self.last_update = []
 
         while not self.verify_stopping_conditions():
@@ -210,14 +210,14 @@ class Optimizer:
                 self._step(X_batch, y_batch)
             if self.verbose: 
                 print(f"Epoch {self.n_epochs} - Objective function: {self.obj_history[-1]} - Loss:\
-                       {self.loss_history[-1]} - Gradient norm: {self.grad_norm}")
+                       {self.loss_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}")
             self.n_epochs += 1
         
         if self.verbose: 
             y_pred = self.model(X)
             _ = self._objective_function(y, y_pred)
             print(f"Stopping condition reached after {self.n_epochs} epochs")
-            print(f"Objective function: {self.obj_history[-1]} - Loss: {self.loss_history[-1]} - Gradient norm: {self.grad_norm}")    
+            print(f"Objective function: {self.obj_history[-1]} - Loss: {self.loss_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}")    
 
 
     def verify_stopping_conditions(self):
@@ -227,7 +227,7 @@ class Optimizer:
             case "obj_tolerance":
                 return self.obj_tol > self.obj_history[-1] - self.obj_history[-2]
             case "grad_norm":
-                return self.grad_norm < self.grad_norm_tol
+                return self.grad_norm_history[-1] < self.grad_norm_tol
             case "n_evaluations":
                 return self.n_forward_backward >= self.max_evaluations
             
@@ -564,4 +564,6 @@ class CG(Optimizer):
             
         alpha = self._AWLS(d, X, y)
         self._update_params(alpha, d)
+
         self.last_d = d
+        self.last_grad_params = grad_params
