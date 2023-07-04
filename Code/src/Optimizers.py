@@ -30,7 +30,7 @@ class Optimizer:
 
     """
 
-    def __init__(self, loss, early_stopping = None, regularization_function = 'L2', stopping_criterion = 'max_epochs'):
+    def __init__(self, loss, regularization_function = 'L2', stopping_criterion = 'max_epochs', early_stopping = None):
 
         """
         Construct an Optimizer object.
@@ -88,12 +88,16 @@ class Optimizer:
         self.batch_size = batch_size
         self.regularization_function.set_coefficients(alpha_l1, alpha_l2)
         
+        print(self.stopping_criterion)
         match self.stopping_criterion:
             case "max_epochs":
                 if type(stopping_value) != int:
                     raise ValueError("Stopping value for max_epochs must be an integer")
                 self.max_epochs = stopping_value
-            case "obj_tol", "grad_norm":
+            case "obj_tol":
+                if self.early_stopping is None:
+                    raise ValueError("EarlyStopping object must be provided at initialization for stopping criterion 'obj_tol' or 'grad_norm'")
+            case "grad_norm":
                 if self.early_stopping is None:
                     raise ValueError("EarlyStopping object must be provided at initialization for stopping criterion 'obj_tol' or 'grad_norm'")
             case "n_evaluations":
@@ -119,7 +123,7 @@ class Optimizer:
         
         """
         J = self.loss(y, y_pred)
-        print(J)
+        
         params = self.model.get_params()
 
         for layer_params in params:
