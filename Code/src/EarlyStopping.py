@@ -2,7 +2,7 @@ import numpy as np
 
 class EarlyStopping():
 
-    def __init__ (self, patience, tolerance):
+    def __init__ (self, patience = 100, tolerance = 1e-4):
         """
         Initializes the early stopping criterion.
 
