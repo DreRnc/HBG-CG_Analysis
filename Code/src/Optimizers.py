@@ -147,12 +147,11 @@ class Optimizer:
         grad_output = self.loss.derivative(y, y_pred)
         grad_params = self.model.backward(grad_output, self.regularization_function)
 
-        if self.stopping_criterion == "grad_tol" or True: #### DONE FOR TESTING PURPOSES
-            grad_norm = 0
-            for grad_layer in grad_params:
-                for grad in grad_layer.values():
-                    grad_norm += np.sum(grad**2)
-            self.grad_norm_history.append(np.sqrt(grad_norm))
+        grad_norm = 0
+        for grad_layer in grad_params:
+            for grad in grad_layer.values():
+                grad_norm += np.sum(grad**2)
+        self.grad_norm_history.append(np.sqrt(grad_norm))
 
         self.n_forward_backward += 1
 
