@@ -6,32 +6,21 @@ from src.EarlyStopping import EarlyStopping
 class Optimizer:
 
     """
-    Attributes: 
-    self.model
-    self.loss
-    self.regularization
-    self.batch_size
-    self.stopping_conditions
-    self.obj_history
+    Base class for all the optimizers.
 
-
-
-    Methods: 
-
-    self.__init__
-    self.initialize
-    self._objective_function
-    self._forward_backward
-    self._update_params
-    self._step
-    self.fit_model
-    self.verify_stop_conditions
-
+    Methods
+    -------
+    initialize : initialize the optimizer with all the parameters needed for the optimization
+    _objective_function : compute the objective function of the optimization problem
+    _forward_backward : perform the forward backward pass
+    _update_parameters : update the parameters of the model
+    _step : perform a step of the optimization
+    get_batches : split the dataset into batches
+    fit_model : fit the model to the data
+    verify_stopping_conditions : verify if the stopping conditions are met
 
     """
-
     def __init__(self, loss, early_stopping = None, regularization_function = 'L2', stopping_criterion = 'max_epochs'):
-
         """
         Construct an Optimizer object.
 
@@ -39,9 +28,10 @@ class Optimizer:
         ----------
         model (MLP) : model to optimize
         loss (str) : loss function to optimize 
+        early_stopping (EarlyStopping) : early stopping objecy
         regularization_function  (str) : regularization function to optimize
-        early_stopping (EarlyStopping) : early stopping criterion
-        stopping_criterion (str) : stopping condition for the optimization (e.g. max number of iterations
+        stopping_criterion (str) : stopping condition for the optimization
+
         """
         if type(loss) == str:       
             self.loss = get_metric_instance(loss)
@@ -71,16 +61,15 @@ class Optimizer:
             self.stopping_criterion = stopping_criterion
 
     def initialize(self, model, stopping_value, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False):
-
         """
         Initialize the optimizer with all the parameters needed for the optimization.
-        This is where you can initialize the momentum, the learning rate, etc. for grid search.
 
         Parameters
         ----------
         batch_size (int) : size of the batch for the gradient descent. If -1, the whole dataset is used.
         alpha_l1 (float) : regularization parameter for l1 regularization
         alpha_l2 (float) : regularization parameter for l2 regularization
+        verbose (bool) : if True, print information about the optimization during the training
 
         """
         self.model = model
@@ -104,14 +93,13 @@ class Optimizer:
                 raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm'")
 
     def _objective_function(self, y, y_pred):
-
         """
         Compute the objective function of the optimization problem.
         
         Parameters
         ----------
-        y_pred (np.array) : predicted values
         y (np.array) : ground truth values
+        y_pred (np.array) : predicted values
         
         Returns
         -------
@@ -128,10 +116,8 @@ class Optimizer:
         return J
 
     def _forward_backward(self, X, y):
-
         """
         Compute the objective function and the gradients of the objective function with respect to the parameters.
-        Gradient norm is computed only if needed as stopping condition, as it is a costly operation.
         
         Parameters
         ----------
@@ -142,6 +128,7 @@ class Optimizer:
         -------
         J (float) : objective function of the optimization problem
         grad_params (list) : list of dictionaries containing the gradients of the objective function with respect to the parameters
+        grad_norm (float) : norm of the gradient of the objective function with respect to the parameters
         
         """
         y_pred = self.model(X)
@@ -167,17 +154,16 @@ class Optimizer:
         raise NotImplementedError
     
     def get_batches(self, X, y):
-
         """
-        Generator that returns batches of data.
+        Function that constructs a generator of batches of data.
         
         Parameters
         ----------
         X (np.array) : input data
         y (np.array) : ground truth values
         
-        Returns
-        -------
+        Yields
+        ------
         X_batch (np.array) : batch of input data
         y_batch (np.array) : batch of ground truth values
         
@@ -241,25 +227,19 @@ class Optimizer:
 class HBG(Optimizer):
 
     """
-    Attributes
-    ----------
-    self.model
-    self.loss
-    self.regularization_function
-    self.alpha : learning rate
-    self.beta : momentum
-    self.batch_size
+    Class for the Heavy Ball Gradient optimizer.
 
+    Methods
+    -------
+    initialize : initialize the optimizer with all the parameters needed for the optimization
+    _objective_function : compute the objective function of the optimization problem
+    _forward_backward : perform the forward backward pass
+    _update_parameters : update the parameters of the model
+    _step : perform a step of the optimization
+    get_batches : split the dataset into batches
+    fit_model : fit the model to the data
+    verify_stopping_conditions : verify if the stopping conditions are met
 
-    Methods: 
-
-    self.__init__
-    self.initialize
-    self._objective_function
-    self._forward_backward
-    self._step
-    self.fit_model
-    self._update_params
 
     """
 
@@ -306,50 +286,16 @@ class HBG(Optimizer):
             for i in range(len(self.model.layers)):
                 self.last_update.append({"weights": - self.alpha * grad_params[i]["weights"], "biases": - self.alpha * grad_params[i]["biases"]})
         
-        """
-        print(self.model.layers)
-        for layer in range(len(self.model.layers)):
-            print(layer)
-            for value in self.last_update[layer].values():
-                print(value.shape)
-        """
-        
         self.model.update_params(self.last_update)
 
 
 class CG(Optimizer):
 
     """
-    Attributes : 
-    self.model: model to optimize
-    self.loss: loss function
-    self.regularization_function: regularization function
-    self.batch_size: batch size
-    self.beta_type: type of beta update
-    self.m1: parameter for FR beta update
-    self.m2: parameter for PR beta update
-    self.MaxFeval: maximum number of function evaluations
-    self.tau: parameter for AWLS
-    self.delta: parameter for AWLS
-    self.eps: parameter for AWLS
-    self.sfgrd: parameter for AWLS
-    self.alpha_l1: regularization parameter for l1 regularization
-    self.alpha_l2: regularization parameter for l2 regularization
-    self.verbose: print information about the optimization process
-
-    Methods: 
-
-    self.__init__
-    self.initialize
-    self._objective_function
-    self._forward_backward
-    self._phi
-    self._AWLS
-    self._step
-    self.fit_model
+    Class for the Conjugate Gradient optimizer.
 
     """
-
+    
     def initialize(self, model, stopping_value = 1000, batch_size = -1, alpha_l1 = 0, alpha_l2 = 0.001, verbose = False,
                    beta_type = "FR", m1 = 0.25, m2 = 0.4, MaxFeval = 20, tau = 0.9, delta = 1e-4, eps = 1e-6, sfgrd = 0.2):
 
