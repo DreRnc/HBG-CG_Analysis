@@ -29,7 +29,7 @@ class Optimizer:
 
     """
 
-    def __init__(self, loss, regularization_function = 'L2', stopping_criterion = 'max_epochs'):
+    def __init__(self, loss, early_stopping = None, regularization_function = 'L2', stopping_criterion = 'max_epochs'):
 
         """
         Construct an Optimizer object.
@@ -41,7 +41,7 @@ class Optimizer:
         regularization_function  (str) : regularization function to optimize
         stopping_criterion (str) : stopping condition for the optimization (e.g. max number of iterations
         """
-
+    
         if type(loss) == str:       
             self.loss = get_metric_instance(loss)
         elif isinstance(loss, MetricFunction):
