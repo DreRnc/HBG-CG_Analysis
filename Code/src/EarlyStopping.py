@@ -8,7 +8,7 @@ class EarlyStopping():
 
         Parameters
         ----------
-        patience (int): number of epochs to wait before stopping
+        patience (int): number of steps to wait before stopping
         tolerance (float): tolerance for the early stopping criterion
 
         """
