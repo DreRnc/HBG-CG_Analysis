@@ -1,6 +1,7 @@
 import numpy as np
 from src.RegularizationFunctions import get_regularization_instance, RegularizationFunction
 from src.MetricFunctions import get_metric_instance, MetricFunction
+from src.EarlyStopping import EarlyStopping
 
 class Optimizer:
 
@@ -29,7 +30,7 @@ class Optimizer:
 
     """
 
-    def __init__(self, loss, regularization_function = 'L2', stopping_criterion = 'max_epochs'):
+    def __init__(self, loss, early_stopping = None, regularization_function = 'L2', stopping_criterion = 'max_epochs'):
 
         """
         Construct an Optimizer object.
@@ -39,9 +40,9 @@ class Optimizer:
         model (MLP) : model to optimize
         loss (str) : loss function to optimize 
         regularization_function  (str) : regularization function to optimize
+        early_stopping (EarlyStopping) : early stopping criterion
         stopping_criterion (str) : stopping condition for the optimization (e.g. max number of iterations
         """
-
         if type(loss) == str:       
             self.loss = get_metric_instance(loss)
         elif isinstance(loss, MetricFunction):
@@ -56,6 +57,14 @@ class Optimizer:
         else:
             raise ValueError("Regularization function must be a string or a RegularizationFunction object")
 
+        if early_stopping is not None:
+            if not isinstance(early_stopping, EarlyStopping):
+                raise ValueError("Early stopping must be an EarlyStopping object")
+            else:
+                self.early_stopping = early_stopping
+        else:
+            self.early_stopping = None
+        
         if stopping_criterion not in ["max_epochs", "obj_tol", "grad_norm", "n_evaluations"]:
             raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm', 'n_evaluations'")
         else:
@@ -84,14 +93,9 @@ class Optimizer:
                 if type(stopping_value) != int:
                     raise ValueError("Stopping value for max_epochs must be an integer")
                 self.max_epochs = stopping_value
-            case "obj_tol":
-                if type(stopping_value) != float:
-                    raise ValueError("Stopping value for obj_tol must be a float")
-                self.obj_tol = stopping_value
-            case "grad_norm":
-                if type(stopping_value) != float:
-                    raise ValueError("Stopping value for grad_norm must be a float")
-                self.grad_norm_tol = stopping_value
+            case "obj_tol", "grad_norm":
+                if self.early_stopping is None:
+                    raise ValueError("EarlyStopping object must be provided at initialization for stopping criterion 'obj_tol' or 'grad_norm'")
             case "n_evaluations":
                 if type(stopping_value) != int:
                     raise ValueError("Stopping value for n_evaluations must be an integer")
@@ -151,11 +155,11 @@ class Optimizer:
         for grad_layer in grad_params:
             for grad in grad_layer.values():
                 grad_norm += np.sum(grad**2)
-        self.grad_norm_history.append(np.sqrt(grad_norm))
+        grad_norm = np.sqrt(grad_norm)
 
         self.n_forward_backward += 1
 
-        return J, grad_params
+        return J, grad_params, grad_norm
     
     def _update_params(self):
         raise NotImplementedError
@@ -195,13 +199,12 @@ class Optimizer:
         y (np.array) : ground truth values
 
         """
-
-        # Initialize the values for stopping conditions at the beginning of the optimization
         self.n_epochs = 0
         self.n_forward_backward = 0
         self.obj_history = []
         self.grad_norm_history = [float('inf')]
         self.last_update = []
+        self.early_stopping.initialize()
 
         while self.n_epochs < 2 or not self.verify_stopping_conditions():
             for X_batch, y_batch in self.get_batches(X, y):
@@ -218,13 +221,21 @@ class Optimizer:
 
 
     def verify_stopping_conditions(self):
+        """
+        Verify if the stopping conditions are met.
+        
+        Returns
+        -------
+        bool : True if the stopping conditions are met, False otherwise
+
+        """
         match self.stopping_criterion:
             case "max_epochs":
                 return self.max_epochs == self.n_epochs
-            case "obj_tol":
-                return np.abs(self.obj_history[-2] - self.obj_history[-1]) < self.obj_tol 
+            case "obj_tolerance":
+                return self.early_stopping(self.obj_history[-1])
             case "grad_norm":
-                return self.grad_norm_history[-1] < self.grad_norm_tol
+                return self.early_stopping(self.grad_norm_history[-1])
             case "n_evaluations":
                 return self.n_forward_backward >= self.max_evaluations
             
@@ -273,19 +284,20 @@ class HBG(Optimizer):
         self.alpha = alpha
         self.beta = beta    
 
-    def _step(self, X_batch, y_batch):
+    def _step(self, X, y):
 
         """
         Perform one step of the gradient descent algorithm.
         
         Parameters
         ----------
-        X_batch (np.array) : batch of input data
-        y_batch (np.array) : batch of ground truth values
+        X (np.array) : input data
+        y (np.array) : ground truth values
         
         """
-        J, grad_params = self._forward_backward(X_batch, y_batch)
+        J, grad_params, grad_norm = self._forward_backward(X, y)
         self.obj_history.append(J)
+        self.grad_norm_history.append(grad_norm)
         
         if self.last_update:
             for i in range(len(self.model.layers)):
@@ -531,8 +543,9 @@ class CG(Optimizer):
         
         self._current_params = self.model.get_params()
         
-        J, grad_params = self._forward_backward(X, y)
+        J, grad_params, grad_norm = self._forward_backward(X,y)
         self.obj_history.append(J)
+        self.grad_norm_history.append(grad_norm)
 
         grad_params_flat = self._flatten(grad_params)
         last_grad_params_flat = self._flatten(self.last_grad_params)
