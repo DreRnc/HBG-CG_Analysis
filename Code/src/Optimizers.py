@@ -60,7 +60,8 @@ class Optimizer:
         else:
             self.stopping_criterion = stopping_criterion
 
-    def initialize(self, model, stopping_value, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False):
+    def initialize(self, model, stopping_value = 1000, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False):
+
         """
         Initialize the optimizer with all the parameters needed for the optimization.
 
@@ -107,7 +108,7 @@ class Optimizer:
         
         """
         J = self.loss(y, y_pred)
-
+        print(J)
         params = self.model.get_params()
 
         for layer_params in params:
@@ -135,6 +136,7 @@ class Optimizer:
         J = self._objective_function(y, y_pred)
 
         grad_output = self.loss.derivative(y, y_pred)
+
         grad_params = self.model.backward(grad_output, self.regularization_function)
 
         grad_norm = 0
@@ -187,11 +189,11 @@ class Optimizer:
         self.n_epochs = 0
         self.n_forward_backward = 0
         self.obj_history = []
-        self.grad_norm_history = []
+        self.grad_norm_history = [float('inf')]
         self.last_update = []
         self.early_stopping.initialize()
 
-        while not self.verify_stopping_conditions():
+        while self.n_epochs < 2 or not self.verify_stopping_conditions():
             for X_batch, y_batch in self.get_batches(X, y):
                 self._step(X_batch, y_batch)
             if self.verbose: 
@@ -243,7 +245,7 @@ class HBG(Optimizer):
 
     """
 
-    def initialize(self, model, stopping_value, alpha, beta, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False): 
+    def initialize(self, model, alpha, beta, stopping_value = 1000, batch_size = -1, alpha_l1 = 0, alpha_l2 = 0, verbose = False): 
 
         """
         Initialize the optimizer.
@@ -495,7 +497,6 @@ class CG(Optimizer):
         grad_params_flat = self._flatten(grad_params)
         last_grad_params_flat = self._flatten(self.last_grad_params)
         last_d_flat = self._flatten(self.last_d)
-
         
         if self.beta_type == "FR":
             num = np.linalg.norm(grad_params_flat)**2
@@ -518,6 +519,7 @@ class CG(Optimizer):
                      "biases" : - grad_params[l]["biases"] + beta * self.last_d[l]["biases"]})
             
         alpha = self._AWLS(d, X, y)
+
         self._update_params(alpha, d)
 
         self.last_d = d

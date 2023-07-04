@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 
 class GridSearch():
 
-    def __init__(self, optimizer, model, objective = 'validation'):
+    def __init__(self, optimizer, model, objective = 'validation_error'):
         '''
         Initializes the GridSearch object.
 
@@ -21,14 +21,14 @@ class GridSearch():
         optimizer (Optimizer): The optimizer to be used
         model (Model): The model to be used
         parameters_grid (Dictionary): The values of parameters to be tested
-        objective (String): The objective of the grid search. It can be either "validation" or "training_objective".
-            "validation" means that the score is computed on the validation set;
+        objective (String): The objective of the grid search. It can be either "validation_error" or "training_objective".
+            "validation_error" means that the score is computed on the validation set;
             "training_objective" means that the score is computed on the training set, including the regularization term;
         '''
         self.optimizer = optimizer
         self.model = model
-        if objective not in ['validation', 'training_objective']:
-            raise ValueError('objective must be either "validation" or "training_objective"')
+        if objective not in ['validation_error', 'training_objective']:
+            raise ValueError('objective must be either "validation_error" or "training_objective"')
         self.objective = objective
     
     def create_folds(self, n_folds, stratified):
@@ -52,7 +52,7 @@ class GridSearch():
         if self.objective == 'training_objective' and n_folds != 1:
             raise Warning('n_folds is non influent when the objective is "training_objective"')
         
-        if self.objective == "validation":
+        if self.objective == "validation_error":
             if n_folds < 2:
                 if stratified:
                     self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size = self.test_size, stratify = self.y, random_state = 42)
@@ -207,7 +207,7 @@ class GridSearch():
             self.results.sort(key = lambda x: x[0], reverse = True)
         
         print('\n')
-        print(f'Parameters of best model, evaluated on mean validation error: {self.results[0][1]}')
+        print(f'Parameters of best model, evaluated on {self.objective}: {self.results[0][1]}')
         print(f'Validation error on {self.n_folds} folds for best model: {self.results[0][2]}')
         print(f'Mean validation error: {self.results[0][0]}')
 
