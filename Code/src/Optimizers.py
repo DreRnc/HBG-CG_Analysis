@@ -115,7 +115,6 @@ class Optimizer:
         
         """
         J = self.loss(y, y_pred)
-        self.loss_history.append(J)
 
         params = self.model.get_params()
 
@@ -200,7 +199,6 @@ class Optimizer:
         self.n_epochs = 0
         self.n_forward_backward = 0
         self.obj_history = []
-        self.loss_history = []
         self.grad_norm_history = []
         self.last_update = []
 
@@ -208,15 +206,14 @@ class Optimizer:
             for X_batch, y_batch in self.get_batches(X, y):
                 self._step(X_batch, y_batch)
             if self.verbose: 
-                print(f"Epoch {self.n_epochs} - Objective function: {self.obj_history[-1]} - Loss:\
-                       {self.loss_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}")
+                print(f"Epoch {self.n_epochs} - Objective function: {self.obj_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}")
             self.n_epochs += 1
         
         if self.verbose: 
             y_pred = self.model(X)
             _ = self._objective_function(y, y_pred)
             print(f"Stopping condition reached after {self.n_epochs} epochs")
-            print(f"Objective function: {self.obj_history[-1]} - Loss: {self.loss_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}")    
+            print(f"Objective function: {self.obj_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}")    
 
 
     def verify_stopping_conditions(self):
