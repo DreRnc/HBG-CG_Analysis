@@ -412,7 +412,7 @@ class CG(Optimizer):
         # compute tomography and its derivative
         self._update_params(alpha, d)
         phi, phip, _ = self._forward_backward(X,y)
-        phip = np.matmul(self._flatten(phip), self._flatten(d))
+        phip = np.dot(self._flatten(phip), self._flatten(d))
 
         # reset model to current params
         self.model.set_params(self._current_params)
@@ -437,32 +437,32 @@ class CG(Optimizer):
         """
         print('LS')
         feval = 1
-        alpha_s = 0.01
+        alpha_s = 1e-4
 
         [phi0 , phip0] = self._phi(0, d, X, y)
 
         while feval <= self.MaxFeval:
-            
             [ phi_as , phip_as ] = self._phi(alpha_s, d, X, y)
+
             feval = feval + 1
             if ( phi_as <= phi0 + self.m1 * alpha_s * phip0) and ( np.abs( phip_as ) <= - self.m2 * phip0 ):
                 alpha = alpha_s
-                print('Armijo + strong Wolfe satisfied, we are done')
+                #print('Armijo + strong Wolfe satisfied, we are done')
                 return alpha # Armijo + strong Wolfe satisfied, we are done
             
             if phip_as >= 0:  # derivative is positive
                 break
             
             alpha_s = alpha_s / self.tau
-        
+
         alpha_m = 0;
         alpha = alpha_s;
+        phip_a = phip_as
         phip_am = phip0;
         
         while ( feval <= self.MaxFeval ) and ( ( alpha_s - alpha_m ) ) > self.delta and ( phip_as > self.eps ):
-            print("second loop")
+        
             # compute the new value by safeguarded quadratic interpolation
-            
             alpha = ( alpha_m * phip_as - alpha_s * phip_am ) / ( phip_as - phip_am );
             alpha = np.max( np.array([alpha_m + ( alpha_s - alpha_m ) * self.sfgrd, \
                                       np.min( np.array([alpha_s - ( alpha_s - alpha_m ) * self.sfgrd, alpha]) ) ]) )
@@ -470,11 +470,8 @@ class CG(Optimizer):
             [ phi_a , phip_a ] = self._phi(alpha, d, X, y)
             feval = feval + 1
 
-            print(alpha_m, alpha, alpha_s)
-            print(phip_am, phip_a, phip_as)
-
             if ( phi_a <= phi0 + self.m1 * alpha * phip0 ) and ( np.abs( phip_a ) <= - self.m2 * phip0 ):
-                print('Armijo + strong Wolfe satisfied, we are done')
+                #print('Armijo + strong Wolfe satisfied, we are done')
                 break #Armijo + strong Wolfe satisfied, we are done
             
             # restrict the interval based on sign of the derivative in a
@@ -484,9 +481,6 @@ class CG(Optimizer):
             else:
                 alpha_s = alpha
                 phip_as = phip_a
-        
-        if feval <= self.MaxFeval:
-            print("max feval")
                 
         return alpha
         
