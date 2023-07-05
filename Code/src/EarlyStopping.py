@@ -2,7 +2,7 @@ import numpy as np
 
 class EarlyStopping():
 
-    def __init__ (self, mode = 'grad_norm'):
+    def __init__ (self, mode):
         """
         Initializes the early stopping criterion.
 
@@ -16,7 +16,7 @@ class EarlyStopping():
             raise ValueError('mode must be either grad_norm or obj_tol')
         self.mode = mode
 
-    def initialize (self, patience = 100, tolerance = 1e-4):
+    def initialize (self, patience, tolerance = 1e-4):
         """
         Initializes the early stopping criterion.
         

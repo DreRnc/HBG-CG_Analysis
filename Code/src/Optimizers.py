@@ -11,6 +11,7 @@ class Optimizer:
     Methods
     -------
     initialize : initialize the optimizer with all the parameters needed for the optimization
+    _set_stopping_criterion : set the stopping criterion for the optimization
     _objective_function : compute the objective function of the optimization problem
     _forward_backward : perform the forward backward pass
     _update_parameters : update the parameters of the model
@@ -62,8 +63,8 @@ class Optimizer:
         else:
             self.stopping_criterion = stopping_criterion
 
-    def initialize(self, model, stopping_value = 1000, batch_size =- 1, alpha_l1 = 0, alpha_l2 = 0, verbose = False):
-
+    def initialize(self, model, stopping_value = 1e-4, patience = 100, max_epochs = 10000, batch_size =- 1, 
+                   alpha_l1 = 0, alpha_l2 = 0, verbose = False):
         """
         Initialize the optimizer with all the parameters needed for the optimization.
 
@@ -79,24 +80,48 @@ class Optimizer:
         self.verbose = verbose
         self.batch_size = batch_size
         self.regularization_function.set_coefficients(alpha_l1, alpha_l2)
-        
+
+        if type(max_epochs) != int:
+            raise ValueError("Maximum number of epochs must be an integer")
+        self.max_epochs = max_epochs
+
+        self._set_stopping_criterion(stopping_value, patience)
+
+    def _set_stopping_criterion(self, stopping_value, patience):
+        """
+        Set the stopping criterion for the optimization.
+
+        Parameters
+        ----------
+        stopping_value (float) : value of the stopping criterion
+        patience (int) : number of epochs to wait before stopping the optimization
+
+        """
         match self.stopping_criterion:
             case "max_epochs":
-                if type(stopping_value) != int:
-                    raise ValueError("Stopping value for max_epochs must be an integer")
-                self.max_epochs = stopping_value
+                pass  
+
             case "obj_tol":
                 if self.early_stopping is None:
                     raise ValueError("EarlyStopping object must be provided at initialization for stopping criterion 'obj_tol' or 'grad_norm'")
+                if type(stopping_value) != float:
+                    raise ValueError("Stopping value for obj_tol must be a float")
+                self.early_stopping.initialize(patience = patience, tolerance = stopping_value)
+
             case "grad_norm":
                 if self.early_stopping is None:
                     raise ValueError("EarlyStopping object must be provided at initialization for stopping criterion 'obj_tol' or 'grad_norm'")
+                if type(stopping_value) != float:
+                    raise ValueError("Stopping value for grad_norm must be a float")
+                self.early_stopping.initialize(patience = patience, tolerance = stopping_value)
+
             case "n_evaluations":
                 if type(stopping_value) != int:
                     raise ValueError("Stopping value for n_evaluations must be an integer")
-                self.n_evaluations = stopping_value
+                self.max_evaluations = stopping_value
+
             case _:
-                raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm'")
+                raise ValueError("Stopping criterion must be one of 'max_epochs', 'obj_tol', 'grad_norm', 'n_evaluations'")
 
     def _objective_function(self, y, y_pred):
         """
@@ -216,21 +241,25 @@ class Optimizer:
     def verify_stopping_conditions(self):
         """
         Verify if the stopping conditions are met.
+        In any case, after reaching the maximum number of epochs, the optimization stops.
         
         Returns
         -------
         bool : True if the stopping conditions are met, False otherwise
 
         """
-        match self.stopping_criterion:
-            case "max_epochs":
-                return self.max_epochs == self.n_epochs
-            case "obj_tol":
-                return self.early_stopping(self.obj_history[-1])
-            case "grad_norm":
-                return self.early_stopping(self.grad_norm_history[-1])
-            case "n_evaluations":
-                return self.n_forward_backward >= self.max_evaluations
+        if self.n_epochs >= self.max_epochs:
+            return True
+        else:
+            match self.stopping_criterion:
+                case "max_epochs":
+                    return False
+                case "obj_tol":
+                    return self.early_stopping(self.obj_history[-1])
+                case "grad_norm":
+                    return self.early_stopping(self.grad_norm_history[-1])
+                case "n_evaluations":
+                    return self.n_forward_backward >= self.max_evaluations
             
 class HBG(Optimizer):
 
