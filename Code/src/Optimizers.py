@@ -80,7 +80,6 @@ class Optimizer:
         self.batch_size = batch_size
         self.regularization_function.set_coefficients(alpha_l1, alpha_l2)
         
-        print(self.stopping_criterion)
         match self.stopping_criterion:
             case "max_epochs":
                 if type(stopping_value) != int:
@@ -197,7 +196,8 @@ class Optimizer:
         self.obj_history = []
         self.grad_norm_history = [float('inf')]
         self.last_update = []
-        self.early_stopping.initialize()
+        if self.early_stopping is not None:
+            self.early_stopping.initialize()
 
         while self.n_epochs < 2 or not self.verify_stopping_conditions():
             for X_batch, y_batch in self.get_batches(X, y):
@@ -225,7 +225,7 @@ class Optimizer:
         match self.stopping_criterion:
             case "max_epochs":
                 return self.max_epochs == self.n_epochs
-            case "obj_tolerance":
+            case "obj_tol":
                 return self.early_stopping(self.obj_history[-1])
             case "grad_norm":
                 return self.early_stopping(self.grad_norm_history[-1])
@@ -305,7 +305,7 @@ class CG(Optimizer):
     """
     
     def initialize(self, model, stopping_value = 1000, batch_size = -1, alpha_l1 = 0, alpha_l2 = 0.001, verbose = False,
-                   beta_type = "FR", m1 = 0.25, m2 = 0.4, MaxFeval = 20, tau = 0.9, delta = 1e-4, eps = 1e-6, sfgrd = 0.2):
+                   beta_type = "FR", m1 = 0.25, m2 = 0.4, MaxFeval = 100, tau = 0.9, delta = 1e-6, eps = 1e-6, sfgrd = 0):
 
         """
         Initialize the optimizer.
@@ -411,8 +411,8 @@ class CG(Optimizer):
 
         # compute tomography and its derivative
         self._update_params(alpha, d)
-        phi, phip = self._forward_backward(X,y)
-        phip = np.matmul(self._flatten(phip), self._flatten(d))
+        phi, phip, _ = self._forward_backward(X,y)
+        phip = np.dot(self._flatten(phip), self._flatten(d))
 
         # reset model to current params
         self.model.set_params(self._current_params)
@@ -435,32 +435,34 @@ class CG(Optimizer):
         alpha (float) : step size
         
         """
-
+        print('LS')
         feval = 1
-        alpha_s = 0.01
+        alpha_s = 1e-4
 
         [phi0 , phip0] = self._phi(0, d, X, y)
 
         while feval <= self.MaxFeval:
-            
             [ phi_as , phip_as ] = self._phi(alpha_s, d, X, y)
+
             feval = feval + 1
             if ( phi_as <= phi0 + self.m1 * alpha_s * phip0) and ( np.abs( phip_as ) <= - self.m2 * phip0 ):
                 alpha = alpha_s
+                #print('Armijo + strong Wolfe satisfied, we are done')
                 return alpha # Armijo + strong Wolfe satisfied, we are done
             
             if phip_as >= 0:  # derivative is positive
                 break
             
             alpha_s = alpha_s / self.tau
-            
+
         alpha_m = 0;
         alpha = alpha_s;
+        phip_a = phip_as
         phip_am = phip0;
         
         while ( feval <= self.MaxFeval ) and ( ( alpha_s - alpha_m ) ) > self.delta and ( phip_as > self.eps ):
+        
             # compute the new value by safeguarded quadratic interpolation
-            
             alpha = ( alpha_m * phip_as - alpha_s * phip_am ) / ( phip_as - phip_am );
             alpha = np.max( np.array([alpha_m + ( alpha_s - alpha_m ) * self.sfgrd, \
                                       np.min( np.array([alpha_s - ( alpha_s - alpha_m ) * self.sfgrd, alpha]) ) ]) )
@@ -469,6 +471,7 @@ class CG(Optimizer):
             feval = feval + 1
 
             if ( phi_a <= phi0 + self.m1 * alpha * phip0 ) and ( np.abs( phip_a ) <= - self.m2 * phip0 ):
+                #print('Armijo + strong Wolfe satisfied, we are done')
                 break #Armijo + strong Wolfe satisfied, we are done
             
             # restrict the interval based on sign of the derivative in a
@@ -523,7 +526,11 @@ class CG(Optimizer):
         for l in range(len(grad_params)):
             d.append({"weights" : - grad_params[l]["weights"] + beta * self.last_d[l]["weights"],\
                      "biases" : - grad_params[l]["biases"] + beta * self.last_d[l]["biases"]})
-            
+        
+        d_flat = self._flatten(d)
+        if np.dot(grad_params_flat, d_flat) >= 0:
+            print("Warning: sufficient descent condition does not hold")
+
         alpha = self._AWLS(d, X, y)
 
         self._update_params(alpha, d)
