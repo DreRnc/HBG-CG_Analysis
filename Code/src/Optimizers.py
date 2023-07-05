@@ -435,7 +435,6 @@ class CG(Optimizer):
         alpha (float) : step size
         
         """
-        print('LS')
         feval = 1
         alpha_s = 1e-4
 
