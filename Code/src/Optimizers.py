@@ -113,6 +113,10 @@ class Optimizer:
 
         if type(max_epochs) != int:
             raise ValueError("Maximum number of epochs must be an integer")
+        if self.stopping_criterion == "max_epochs":
+            if stopping_value != max_epochs:
+                raise Warning(f"Stopping value is different from the maximum number of epochs, \
+                              the optimization will stop after {max_epochs} epochs")
         self.max_epochs = max_epochs
 
         self._set_stopping_criterion(stopping_value, patience)
