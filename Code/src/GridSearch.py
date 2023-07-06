@@ -247,15 +247,6 @@ class GridSearch:
         elif self.model.task == "classification":
             self.results.sort(key=lambda x: x[0], reverse=True)
 
-        print("\n")
-        print(
-            f"Parameters of best model, evaluated on {self.objective}: {self.results[0][1]}"
-        )
-        print(
-            f"Validation error on {self.n_folds} folds for best model: {self.results[0][2]}"
-        )
-        print(f"Mean validation error: {self.results[0][0]}")
-
         self.best_parameters = self.results[0][1]
         self.best_score = self.results[0][0]
 
@@ -264,6 +255,17 @@ class GridSearch:
         self.optimizer.fit_model(self.X, self.y)
 
         self.best_model = self.model
+
+        print("\n")
+        print(
+            f"Parameters of best model, evaluated on {self.objective}: {self.results[0][1]} \n"
+            f"Best {self.objective}: {self.results[0][0]}"
+        )
+        if self.objective == "validation_error":
+            print(
+                f"Validation error on {self.n_folds} folds for best model: {self.results[0][2]}"
+                )
+            print(f"Mean validation error: {self.results[0][0]}")
 
     def get_best_parameters(self, n_parameters=1, all=False):
         """

@@ -16,7 +16,7 @@ class EarlyStopping:
             raise ValueError("mode must be either grad_norm or obj_tol")
         self.mode = mode
 
-    def initialize(self, patience=10, tolerance=1e-4):
+    def initialize(self, patience=20, tolerance=1e-4):
         """
         Initializes the early stopping criterion.
 

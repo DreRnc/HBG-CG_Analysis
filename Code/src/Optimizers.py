@@ -589,9 +589,7 @@ class CG(Optimizer):
         #phi_am = phi0
         phip_am = phip0
 
-        while (
-            feval <= self.MaxFeval
-        ):  # and ( ( alpha_s - alpha_m ) ) > self.delta and ( phip_as > self.eps ):
+        while feval <= self.MaxFeval and ( ( alpha_s - alpha_m ) ) > self.delta and ( phip_as > self.eps ): 
             #print("second loop")
             # compute the new value by safeguarded quadratic interpolation
             alpha = (alpha_m * phip_as - alpha_s * phip_am) / (phip_as - phip_am)
