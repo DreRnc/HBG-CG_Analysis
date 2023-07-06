@@ -1,6 +1,7 @@
 import numpy as np
 from src.ActivationFunctions import get_activation_instance
 
+
 class Layer:
     """
     A Layer is a collection of neurons.
@@ -18,7 +19,7 @@ class Layer:
         raise NotImplementedError
 
     def backward(self):
-        raise NotImplementedError 
+        raise NotImplementedError
 
 
 class FullyConnectedLayer(Layer):
@@ -35,7 +36,7 @@ class FullyConnectedLayer(Layer):
     biases (np.array): biases of the layer, shape (n_units, 1)
     activation_function (str): name/alias of activation function for all activation layers
     activation (np.array): activation of the layer, shape (n_units, 1)
-    
+
     Methods
     -------
     __init__ : initializes the layer
@@ -47,12 +48,11 @@ class FullyConnectedLayer(Layer):
     update_params : updates the weights and biases of the layer
 
     """
-    
+
     def __init__(self, n_units, n_inputs_per_unit):
-        
         """
         Initialize only properties of the layer that are intrinsic to the structure of the MLP.
-        
+
         Parameters
         ----------
         n_units (int): number of units of the layer
@@ -64,7 +64,6 @@ class FullyConnectedLayer(Layer):
         self.n_inputs_per_unit = n_inputs_per_unit
 
     def initialize(self, weights_initialization, weights_scale, weights_mean):
-        
         """
         Initializes the weights and biases of the layer.
 
@@ -72,7 +71,7 @@ class FullyConnectedLayer(Layer):
         ----------
         weights_initialization (str) : name/alias of the initialization method
         weights_scale (float) : scale of the weights initialization
-        weights_mean (float) : mean of the weights initialization   
+        weights_mean (float) : mean of the weights initialization
 
         """
         if weights_initialization == "scaled":
@@ -82,21 +81,24 @@ class FullyConnectedLayer(Layer):
         elif weights_initialization == "he":
             scale = 2 / self.n_inputs_per_unit
         else:
-            raise ValueError("Invalid weights initialization method: must be 'scaled', 'xavier' or 'he'.")
+            raise ValueError(
+                "Invalid weights initialization method: must be 'scaled', 'xavier' or 'he'."
+            )
 
-        self.weights = np.random.normal(loc = weights_mean, scale = scale, size = (self.n_inputs_per_unit, self.n_units))
-        
+        self.weights = np.random.normal(
+            loc=weights_mean, scale=scale, size=(self.n_inputs_per_unit, self.n_units)
+        )
+
         self.biases = np.zeros((1, self.n_units))
 
     def get_params(self):
-
         """
         Gets the parameters from the layer.
         Function used for early stopping.
 
         Returns
         -------
-        Dictionary of parameters from the layer. 
+        Dictionary of parameters from the layer.
             "weights" (np.array) : dimensions (n_inputs_per_unit x n_units)
             "bias" (np.array) : dimension (1, self.n_units)
 
@@ -104,8 +106,7 @@ class FullyConnectedLayer(Layer):
 
         return {"weights": self.weights.copy(), "biases": self.biases.copy()}
 
-    def set_params(self, params):      
-          
+    def set_params(self, params):
         """
         Sets the parameters of the layer.
         Function used for setting best parameters when using early stopping.
@@ -122,7 +123,6 @@ class FullyConnectedLayer(Layer):
         self.biases = params["biases"]
 
     def update_params(self, updates):
-
         """
         Updates the parameters of the layer.
         Function used for updating parameters after each optimization step.
@@ -139,7 +139,6 @@ class FullyConnectedLayer(Layer):
         self.biases += updates["biases"]
 
     def forward(self, input):
-        
         """
         Perform linear transformation to input.
 
@@ -155,14 +154,13 @@ class FullyConnectedLayer(Layer):
 
         if np.shape(self.biases)[1] != self.n_units:
             raise Exception("Dimension Error!")
-        
+
         # Saves values for backpropagation
-        self._input = input        
+        self._input = input
 
         return np.matmul(input, self.weights) + self.biases
 
     def backward(self, grad_output, regularization_function):
-
         """
         Performs backpropagation, calculating gradientd with respect to weights and biases
         and passing gradient for next step.
@@ -178,8 +176,10 @@ class FullyConnectedLayer(Layer):
 
         """
         grad_input = np.matmul(grad_output, self.weights.T)
-        grad_weights = np.matmul(self._input.T, grad_output) + regularization_function.derivative(self.weights)
-        grad_biases = grad_output.sum(axis = 0, keepdims = True)
+        grad_weights = np.matmul(
+            self._input.T, grad_output
+        ) + regularization_function.derivative(self.weights)
+        grad_biases = grad_output.sum(axis=0, keepdims=True)
 
         grad_layer = {"weights": grad_weights, "biases": grad_biases}
 
@@ -195,7 +195,7 @@ class ActivationLayer(Layer):
     ----------
     self.activation (ActivationFunction) : activation function instance for layer
     self._input (np.array) : inputs saved at each step, to use for backprop
-    
+
     Methods
     -------
     __init__ : initialize activation layer with its activation function
@@ -204,11 +204,10 @@ class ActivationLayer(Layer):
 
     """
 
-    def __init__(self, activation = "ReLU"):
-
+    def __init__(self, activation="ReLU"):
         """
         Initialize activation layer with its activation function and number of units.
-        
+
         Parameters
         ----------
         activation (str) : Name/alias of the activation function
@@ -216,9 +215,8 @@ class ActivationLayer(Layer):
         """
 
         self.activation = get_activation_instance(activation)
-    
+
     def forward(self, input):
-        
         """
         Applies activation function to input element-wise.
 
@@ -238,7 +236,6 @@ class ActivationLayer(Layer):
         return self.activation(input)
 
     def backward(self, grad_output):
-        
         """
         Performs backpropagation, computing derivative with respect to inputs.
 
@@ -258,13 +255,13 @@ class ActivationLayer(Layer):
 class Dense(Layer):
 
     """
-    A Dense layer is a fully connected layer with an activation layer afterwards. 
+    A Dense layer is a fully connected layer with an activation layer afterwards.
 
     Attributes
     ----------
     self._fully_connected_layer (FullyConnectedLayer) : linear combination of the dense layer
     self._activation_layer (ActivationLayer) : activation function of the dense layer
-    
+
     Methods
     -------
     __init__ : initialize dense layer with its activation function
@@ -277,10 +274,9 @@ class Dense(Layer):
     """
 
     def __init__(self, n_units, n_inputs_per_unit, activation):
-
         """
         Initialize only properties of the layer that are intrinsic to the structure of the MLP.
-        
+
         Parameters
         ----------
         n_units (int): number of units in the layer
@@ -291,13 +287,11 @@ class Dense(Layer):
         self._fully_connected_layer = FullyConnectedLayer(n_units, n_inputs_per_unit)
         self._activation_layer = ActivationLayer(activation)
 
-
     def initialize(self, weights_initialization, weights_scale, weights_mean):
-
         """
         Initialize properties of the FCL which are specific for each fit.
         Function is infact called whenever starting a new fit.
-        
+
         Parameters
         ----------
         weights_initialization (str): type of initialization for weights
@@ -305,10 +299,11 @@ class Dense(Layer):
         weights_mean (float): mean of the normal distribution for initialization of weights
 
         """
-        self._fully_connected_layer.initialize(weights_initialization, weights_scale, weights_mean)
+        self._fully_connected_layer.initialize(
+            weights_initialization, weights_scale, weights_mean
+        )
 
     def update_params(self, update):
-
         """
         Updates the parameters of the FC layer.
 
@@ -318,7 +313,6 @@ class Dense(Layer):
         self._fully_connected_layer.update_params(update)
 
     def get_params(self):
-
         """
         Gets the parameters from the FC layer.
 
@@ -328,17 +322,15 @@ class Dense(Layer):
         return self._fully_connected_layer.get_params()
 
     def set_params(self, params):
-
         """
         Sets the parameters for the FC layer.
-        
+
         (See documentation in fully connected layer class)
 
         """
         self._fully_connected_layer.set_params(params)
 
     def forward(self, input):
-        
         """
         Computes forward propagation, first on FCL, then on AL.
 
@@ -348,9 +340,7 @@ class Dense(Layer):
         output_FCL = self._fully_connected_layer.forward(input)
         return self._activation_layer.forward(output_FCL)
 
-
-    def backward (self, grad_output, regularization_function):
-
+    def backward(self, grad_output, regularization_function):
         """
         Performs backpropagation, first on AL and then on FCL.
 
@@ -362,4 +352,6 @@ class Dense(Layer):
 
         """
         grad_output_FCL = self._activation_layer.backward(grad_output)
-        return self._fully_connected_layer.backward(grad_output_FCL, regularization_function)
+        return self._fully_connected_layer.backward(
+            grad_output_FCL, regularization_function
+        )
