@@ -265,6 +265,7 @@ class Optimizer:
         self.n_epochs = 0
         self.n_forward_backward = 0
         self.obj_history = []
+        self.obj_history_epochs = []
         self.grad_norm_history = [float("inf")]
         self.last_update = []
         if self.early_stopping is not None:
@@ -273,6 +274,7 @@ class Optimizer:
         while self.n_epochs < 2 or not self.verify_stopping_conditions():
             for X_batch, y_batch in self.get_batches(X, y):
                 self._step(X_batch, y_batch)
+            self.obj_history_epochs.append(self._objective_function(y, self.model(X)))
             if self.verbose:
                 print(
                     f"Epoch {self.n_epochs} - Objective function: {self.obj_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}"
