@@ -88,12 +88,12 @@ class Optimizer:
         self,
         model,
         stopping_value=1e-4,
+        max_epochs=10000,
         batch_size=-1,
         alpha_l1=0,
         alpha_l2=0,
         verbose=False,
-        patience=100,
-        max_epochs=10000,
+        patience=1
     ):
         """
         Initialize the optimizer with all the parameters needed for the optimization.
@@ -268,8 +268,6 @@ class Optimizer:
         self.obj_history_epochs = []
         self.grad_norm_history = [float("inf")]
         self.last_update = []
-        if self.early_stopping is not None:
-            self.early_stopping.initialize()
 
         while self.n_epochs < 2 or not self.verify_stopping_conditions():
             for X_batch, y_batch in self.get_batches(X, y):
@@ -337,7 +335,8 @@ class HBG(Optimizer):
         model,
         alpha,
         beta,
-        stopping_value=1000,
+        stopping_value=10000,
+        max_epochs=10000,
         batch_size=-1,
         alpha_l1=0,
         alpha_l2=0,
@@ -357,7 +356,7 @@ class HBG(Optimizer):
 
         """
         super().initialize(
-            model, stopping_value, batch_size, alpha_l1, alpha_l2, verbose
+            model, stopping_value, max_epochs, batch_size, alpha_l1, alpha_l2, verbose
         )
 
         self.alpha = alpha
@@ -410,6 +409,7 @@ class CG(Optimizer):
         self,
         model,
         stopping_value=1000,
+        max_epochs=1000,
         batch_size=-1,
         alpha_l1=0,
         alpha_l2=0.001,
@@ -444,7 +444,7 @@ class CG(Optimizer):
 
         """
         super().initialize(
-            model, stopping_value, batch_size, alpha_l1, alpha_l2, verbose
+            model, stopping_value, max_epochs, batch_size, alpha_l1, alpha_l2, verbose
         )
 
         if beta_type in ["FR", "HS+", "PR+"]:
@@ -683,8 +683,6 @@ class CG(Optimizer):
             )
 
         d_flat = self._flatten(d)
-        if np.dot(grad_params_flat, d_flat) >= 0:
-            print("Warning: sufficient descent condition does not hold")
 
         alpha = self._AWLS(d, X, y)
 
