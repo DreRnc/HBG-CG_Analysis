@@ -267,12 +267,15 @@ class Optimizer:
         self.obj_history = []
         self.obj_history_epochs = []
         self.grad_norm_history = [float("inf")]
+        self.grad_norm_history_epochs = [float("inf")]
         self.last_update = []
 
         while self.n_epochs < 2 or not self.verify_stopping_conditions():
             for X_batch, y_batch in self.get_batches(X, y):
                 self._step(X_batch, y_batch)
             self.obj_history_epochs.append(self._objective_function(y, self.model(X)))
+            J, grad_params, grad_norm = self._forward_backward(X, y)
+            self.grad_norm_history_epochs.append(grad_norm)
             if self.verbose:
                 print(
                     f"Epoch {self.n_epochs} - Objective function: {self.obj_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}"
@@ -304,9 +307,9 @@ class Optimizer:
                 case "max_epochs":
                     return False
                 case "obj_tol":
-                    return self.early_stopping(self.obj_history[-1])
+                    return self.early_stopping(self.obj_history_epochs[-1])
                 case "grad_norm":
-                    return self.early_stopping(self.grad_norm_history[-1])
+                    return self.early_stopping(self.grad_norm_history_epochs[-1])
                 case "n_evaluations":
                     return self.n_forward_backward >= self.max_evaluations
 
