@@ -6,6 +6,7 @@ from src.RegularizationFunctions import (
 from src.MetricFunctions import get_metric_instance, MetricFunction
 from src.EarlyStopping import EarlyStopping
 import copy
+from sklearn.utils import shuffle
 
 
 class Optimizer:
@@ -249,6 +250,7 @@ class Optimizer:
         if self.batch_size == -1:
             yield X, y
         else:
+            X, y = shuffle(X,y)
             for i in range(0, X.shape[0], self.batch_size):
                 yield X[i : i + self.batch_size], y[i : i + self.batch_size]
 
@@ -278,7 +280,7 @@ class Optimizer:
             self.grad_norm_history_epochs.append(grad_norm)
             if self.verbose:
                 print(
-                    f"Epoch {self.n_epochs} - Objective function: {self.obj_history[-1]} - Gradient norm: {self.grad_norm_history[-1]}"
+                    f"Epoch {self.n_epochs} - Objective function: {self.obj_history_epochs[-1]} - Gradient norm: {self.grad_norm_history_epochs[-1]}"
                 )
             self.n_epochs += 1
 
