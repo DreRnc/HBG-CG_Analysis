@@ -572,7 +572,6 @@ class CG(Optimizer):
         [phi0, phip0] = self._phi(0, d, X, y)
 
         while feval <= self.MaxFeval:
-            #print("first loop")
             [phi_as, phip_as] = self._phi(alpha_s, d, X, y)
 
             feval = feval + 1
@@ -580,7 +579,6 @@ class CG(Optimizer):
                 np.abs(phip_as) <= -self.m2 * phip0
             ):
                 alpha = alpha_s
-                #print("Armijo + strong Wolfe satisfied, we are done")
                 return alpha  
 
             if phip_as >= 0:  # derivative is positive
@@ -591,11 +589,9 @@ class CG(Optimizer):
         alpha_m = 0
         alpha = alpha_s
         phip_a = phip_as
-        #phi_am = phi0
         phip_am = phip0
 
-        while feval <= self.MaxFeval and ( ( alpha_s - alpha_m ) ) > self.delta and ( phip_as > self.eps ): 
-            #print("second loop")
+        while feval <= self.MaxFeval and ( ( alpha_s - alpha_m ) ) > self.delta and ( phip_as > self.eps ):
             # compute the new value by safeguarded quadratic interpolation
             alpha = (alpha_m * phip_as - alpha_s * phip_am) / (phip_as - phip_am)
             alpha = np.max(
@@ -615,26 +611,20 @@ class CG(Optimizer):
             [phi_a, phip_a] = self._phi(alpha, d, X, y)
             feval = feval + 1
 
-            #print(phip_a)
 
             if (phi_a <= phi0 + self.m1 * alpha * phip0) and (
                 np.abs(phip_a) <= -self.m2 * phip0
             ):
-                #print("Armijo + strong Wolfe satisfied, we are done")
                 break  
 
             # restrict the interval based on sign of the derivative in a
             if phip_a < 0:
                 alpha_m = alpha
                 phip_am = phip_a
-                #phi_am = phi_a
             else:
                 alpha_s = alpha
                 phip_as = phip_a
                 phi_as = phi_a
-
-            #if feval == self.MaxFeval:
-                #print("max feval")
 
         return alpha
 
@@ -684,8 +674,6 @@ class CG(Optimizer):
                     + beta * self.last_d[l]["biases"],
                 }
             )
-
-        d_flat = self._flatten(d)
 
         alpha = self._AWLS(d, X, y)
 
